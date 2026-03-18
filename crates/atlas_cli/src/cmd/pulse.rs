@@ -3,12 +3,17 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 
-pub async fn run(api: &str) -> Result<()> {
+pub async fn run(api: &str, json: bool) -> Result<()> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
         .build()?;
 
     let p = super::api_get(&client, &format!("{api}/v1/network/pulse")).await?;
+
+    if json {
+        println!("{}", serde_json::to_string_pretty(&p)?);
+        return Ok(());
+    }
 
     let slot  = p["slot"].as_i64().unwrap_or(0);
     let bt    = p["block_time"].as_i64().unwrap_or(0);

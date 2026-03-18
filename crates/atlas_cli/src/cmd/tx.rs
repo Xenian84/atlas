@@ -3,7 +3,7 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 
-pub async fn run(api: &str, sig: &str) -> Result<()> {
+pub async fn run(api: &str, sig: &str, json: bool) -> Result<()> {
     let key = std::env::var("ATLAS_API_KEY")
         .unwrap_or_else(|_| "atlas-admin-key-change-in-production".to_string());
     let client = reqwest::Client::builder()
@@ -15,6 +15,11 @@ pub async fn run(api: &str, sig: &str) -> Result<()> {
         .header("X-Api-Key", &key)
         .send().await?;
     let tx: serde_json::Value = resp.json().await?;
+
+    if json {
+        println!("{}", serde_json::to_string_pretty(&tx)?);
+        return Ok(());
+    }
 
     let slot       = tx["slot"].as_i64().unwrap_or(0);
     let block_time = tx["block_time"].as_i64().unwrap_or(0);

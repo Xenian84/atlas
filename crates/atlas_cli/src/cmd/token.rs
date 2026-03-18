@@ -2,10 +2,20 @@
 
 use anyhow::{Context, Result};
 
-pub async fn run(api: &str, mint: &str, key: &str, holders: bool) -> Result<()> {
+pub async fn run(api: &str, mint: &str, key: &str, holders: bool, json: bool) -> Result<()> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
         .build()?;
+
+    if json {
+        let tok: serde_json::Value = client
+            .get(format!("{api}/v1/token/{mint}"))
+            .header("X-Api-Key", key)
+            .send().await?
+            .json().await?;
+        println!("{}", serde_json::to_string_pretty(&tok)?);
+        return Ok(());
+    }
 
     let tok: serde_json::Value = client
         .get(format!("{api}/v1/token/{mint}"))

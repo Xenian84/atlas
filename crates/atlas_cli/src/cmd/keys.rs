@@ -2,7 +2,7 @@
 
 use anyhow::{Context, Result};
 
-pub async fn run_list(api: &str, key: &str) -> Result<()> {
+pub async fn run_list(api: &str, key: &str, json: bool) -> Result<()> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
         .build()?;
@@ -15,6 +15,11 @@ pub async fn run_list(api: &str, key: &str) -> Result<()> {
         .with_context(|| "GET /v1/keys")?
         .json()
         .await?;
+
+    if json {
+        println!("{}", serde_json::to_string_pretty(&resp)?);
+        return Ok(());
+    }
 
     let count = resp["count"].as_i64().unwrap_or(0);
     println!("API Keys ({count})");
@@ -39,7 +44,7 @@ pub async fn run_list(api: &str, key: &str) -> Result<()> {
     Ok(())
 }
 
-pub async fn run_create(api: &str, key: &str, name: &str, tier: &str, rpm: i32) -> Result<()> {
+pub async fn run_create(api: &str, key: &str, name: &str, tier: &str, rpm: i32, json: bool) -> Result<()> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
         .build()?;
@@ -58,6 +63,11 @@ pub async fn run_create(api: &str, key: &str, name: &str, tier: &str, rpm: i32) 
         .with_context(|| "POST /v1/keys")?
         .json()
         .await?;
+
+    if json {
+        println!("{}", serde_json::to_string_pretty(&resp)?);
+        return Ok(());
+    }
 
     if let Some(err) = resp["error"].as_str() {
         println!("Error: {err}");
@@ -80,7 +90,7 @@ pub async fn run_create(api: &str, key: &str, name: &str, tier: &str, rpm: i32) 
     Ok(())
 }
 
-pub async fn run_revoke(api: &str, admin_key: &str, id: &str) -> Result<()> {
+pub async fn run_revoke(api: &str, admin_key: &str, id: &str, json: bool) -> Result<()> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
         .build()?;
@@ -94,6 +104,10 @@ pub async fn run_revoke(api: &str, admin_key: &str, id: &str) -> Result<()> {
         .json()
         .await?;
 
-    println!("Key {id}: {}", resp["status"].as_str().unwrap_or("unknown"));
+    if json {
+        println!("{}", serde_json::to_string_pretty(&resp)?);
+    } else {
+        println!("Key {id}: {}", resp["status"].as_str().unwrap_or("unknown"));
+    }
     Ok(())
 }

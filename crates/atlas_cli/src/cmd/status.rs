@@ -3,7 +3,21 @@
 use anyhow::Result;
 use redis::Commands;
 
-pub async fn run(api: &str, redis_url: &str) -> Result<()> {
+pub async fn run(api: &str, redis_url: &str, json: bool) -> Result<()> {
+    if json {
+        let client = reqwest::Client::builder().timeout(std::time::Duration::from_secs(8)).build()?;
+        let pulse = super::api_get(&client, &format!("{api}/v1/network/pulse")).await
+            .unwrap_or(serde_json::json!({"error": "unreachable"}));
+        let health = super::api_get(&client, &format!("{api}/health")).await
+            .unwrap_or(serde_json::json!({"error": "unreachable"}));
+        println!("{}", serde_json::to_string_pretty(&serde_json::json!({
+            "api":    api,
+            "health": health,
+            "pulse":  pulse,
+        }))?);
+        return Ok(());
+    }
+
     println!("Atlas System Status");
     println!("{}", "─".repeat(50));
 

@@ -6,6 +6,9 @@ pub mod pulse;
 pub mod token;
 pub mod block;
 pub mod keys;
+pub mod keygen;
+pub mod rpc;
+pub mod usage;
 
 use anyhow::{Context, Result};
 use reqwest::Client;

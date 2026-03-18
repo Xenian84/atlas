@@ -8,9 +8,14 @@
 //!   atlas token <mint> [--holders]   — token info + optional top holders
 //!   atlas block <slot>               — block overview
 //!   atlas stream [--count N]         — tail live shred stream
+//!   atlas keygen                     — generate an X1 keypair
+//!   atlas rpc                        — print RPC endpoint info
+//!   atlas usage [key-prefix]         — API key usage stats
 //!   atlas keys list                  — list API keys (admin)
 //!   atlas keys create <name>         — create an API key (admin)
 //!   atlas keys revoke <id>           — revoke an API key (admin)
+//!
+//!   Add --json to any command for machine-readable output.
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -23,22 +28,26 @@ mod cmd;
     about   = "Atlas platform CLI — X1 blockchain data layer",
     version = "0.1.0",
 )]
-struct Cli {
+pub struct Cli {
     /// Atlas API base URL
     #[arg(long, env = "ATLAS_API_URL", default_value = "http://localhost:8888")]
-    api: String,
+    pub api: String,
 
     /// Redis URL for stream commands
     #[arg(long, env = "ATLAS_REDIS_URL", default_value = "redis://127.0.0.1:6379")]
-    redis: String,
+    pub redis: String,
 
     /// X1 RPC URL — used as on-chain fallback
     #[arg(long, env = "ATLAS_RPC_URL", default_value = "http://localhost:8899")]
-    rpc: String,
+    pub rpc: String,
 
     /// API key for authenticated endpoints
     #[arg(long, env = "ATLAS_API_KEY", default_value = "atlas-admin-key-change-in-production")]
-    key: String,
+    pub key: String,
+
+    /// Output raw JSON (ideal for scripts and AI agents)
+    #[arg(long, short = 'j', global = true)]
+    pub json: bool,
 
     #[command(subcommand)]
     command: Cmd,
@@ -89,6 +98,22 @@ enum Cmd {
         watch: bool,
     },
 
+    /// Generate a new X1 keypair and print the address + secret key path
+    Keygen {
+        /// Output path for keypair JSON (default: ~/.atlas/keypair.json)
+        #[arg(long)]
+        output: Option<String>,
+    },
+
+    /// Print RPC and WebSocket endpoint URLs for this Atlas instance
+    Rpc,
+
+    /// Show API key usage statistics
+    Usage {
+        /// Filter by key prefix (optional — shows all keys if omitted)
+        key_prefix: Option<String>,
+    },
+
     /// API key management (admin only)
     Keys {
         #[command(subcommand)]
@@ -123,19 +148,22 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Cmd::Status  => cmd::status::run(&cli.api, &cli.redis).await,
-        Cmd::Pulse   => cmd::pulse::run(&cli.api).await,
-        Cmd::Tx { sig } => cmd::tx::run(&cli.api, &sig).await,
-        Cmd::Wallet { address } => cmd::wallet::run(&cli.api, &cli.rpc, &address, &cli.key).await,
-        Cmd::Token { mint, holders } => cmd::token::run(&cli.api, &mint, &cli.key, holders).await,
-        Cmd::Block { slot } => cmd::block::run(&cli.api, slot, &cli.key).await,
+        Cmd::Status  => cmd::status::run(&cli.api, &cli.redis, cli.json).await,
+        Cmd::Pulse   => cmd::pulse::run(&cli.api, cli.json).await,
+        Cmd::Tx { sig } => cmd::tx::run(&cli.api, &sig, cli.json).await,
+        Cmd::Wallet { address } => cmd::wallet::run(&cli.api, &cli.rpc, &address, &cli.key, cli.json).await,
+        Cmd::Token { mint, holders } => cmd::token::run(&cli.api, &mint, &cli.key, holders, cli.json).await,
+        Cmd::Block { slot } => cmd::block::run(&cli.api, slot, &cli.key, cli.json).await,
         Cmd::Stream { count, watch } => cmd::stream::run(&cli.redis, count, watch).await,
+        Cmd::Keygen { output } => cmd::keygen::run(output, cli.json).await,
+        Cmd::Rpc => cmd::rpc::run(&cli.api, &cli.rpc, cli.json).await,
+        Cmd::Usage { key_prefix } => cmd::usage::run(&cli.api, &cli.key, key_prefix.as_deref(), cli.json).await,
         Cmd::Keys { action } => match action {
-            KeysCmd::List => cmd::keys::run_list(&cli.api, &cli.key).await,
+            KeysCmd::List => cmd::keys::run_list(&cli.api, &cli.key, cli.json).await,
             KeysCmd::Create { name, tier, rpm } =>
-                cmd::keys::run_create(&cli.api, &cli.key, &name, &tier, rpm).await,
+                cmd::keys::run_create(&cli.api, &cli.key, &name, &tier, rpm, cli.json).await,
             KeysCmd::Revoke { id } =>
-                cmd::keys::run_revoke(&cli.api, &cli.key, &id).await,
+                cmd::keys::run_revoke(&cli.api, &cli.key, &id, cli.json).await,
         },
     }
 }

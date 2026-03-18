@@ -3,10 +3,21 @@
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 
-pub async fn run(api: &str, rpc: &str, address: &str, key: &str) -> Result<()> {
+pub async fn run(api: &str, rpc: &str, address: &str, key: &str, json: bool) -> Result<()> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
         .build()?;
+
+    if json {
+        let resp: serde_json::Value = client
+            .get(format!("{api}/v1/wallet/{address}"))
+            .header("Accept", "application/json")
+            .header("X-Api-Key", key)
+            .send().await?
+            .json().await?;
+        println!("{}", serde_json::to_string_pretty(&resp)?);
+        return Ok(());
+    }
 
     // Call the unified /v1/wallet/:addr endpoint
     let resp = client

@@ -17,3 +17,6 @@ clap       = { workspace = true }
 reqwest    = { workspace = true }
 chrono     = { workspace = true }
 redis      = { workspace = true }
+rand       = { workspace = true }
+bs58       = { workspace = true }
+ed25519-dalek = { version = "2", features = ["rand_core"] }

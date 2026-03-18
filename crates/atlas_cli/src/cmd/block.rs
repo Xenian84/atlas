@@ -3,7 +3,17 @@
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 
-pub async fn run(api: &str, slot: u64, key: &str) -> Result<()> {
+pub async fn run(api: &str, slot: u64, key: &str, json: bool) -> Result<()> {
+    if json {
+        let client = reqwest::Client::builder().timeout(std::time::Duration::from_secs(10)).build()?;
+        let resp: serde_json::Value = client
+            .get(format!("{api}/v1/block/{slot}"))
+            .header("X-Api-Key", key)
+            .send().await?
+            .json().await?;
+        println!("{}", serde_json::to_string_pretty(&resp)?);
+        return Ok(());
+    }
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
         .build()?;
