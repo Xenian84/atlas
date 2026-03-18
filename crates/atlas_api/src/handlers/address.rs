@@ -7,7 +7,7 @@ use atlas_toon::render_tx_history;
 use atlas_common::redis_ext;
 use crate::{state::AppState, error::ApiError, negotiate::{negotiate, respond}};
 
-/// Range filter for blockTime / slot (mirrors Helius filter syntax).
+/// Range filter for blockTime / slot.
 #[derive(Deserialize, Default, Clone)]
 pub struct RangeFilter {
     pub gte: Option<i64>,

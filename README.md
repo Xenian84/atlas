@@ -3,7 +3,7 @@
 # Atlas
 
 **Production-grade blockchain infrastructure for the X1 network.**  
-Helius-parity+ indexer · REST & JSON-RPC API · Webhooks · Wallet Intelligence · Block Explorer · CLI
+Full-featured indexer · REST & JSON-RPC API · Webhooks · Wallet Intelligence · Block Explorer · CLI
 
 [![Rust](https://img.shields.io/badge/Rust-1.84+-orange?logo=rust)](https://www.rust-lang.org/)
 [![X1 Network](https://img.shields.io/badge/Network-X1%20Mainnet-blue)](https://x1.xyz)
@@ -16,7 +16,7 @@ Helius-parity+ indexer · REST & JSON-RPC API · Webhooks · Wallet Intelligence
 
 ## Overview
 
-Atlas is a self-contained indexing and API platform for the X1 blockchain, built to match and exceed [Helius](https://helius.dev) on Solana. It connects to a Tachyon validator via Yellowstone gRPC, indexes every transaction and account state change into PostgreSQL, and exposes a unified REST + JSON-RPC API with sub-100ms response times.
+Atlas is a self-contained indexing and API platform for the X1 blockchain. It connects to a Tachyon validator via Yellowstone gRPC, indexes every transaction and account state change into PostgreSQL, and exposes a unified REST + JSON-RPC API with sub-100ms response times.
 
 ```
 ┌─────────────────────────────────┐    ┌───────────────────────────────────────────┐
@@ -41,7 +41,7 @@ Atlas is a self-contained indexing and API platform for the X1 blockchain, built
 | **Transaction indexing** | Real-time streaming via Yellowstone gRPC · backfill CLI · shred-level ingestion |
 | **Account indexing** | Non-blocking geyser plugin (atlas-geyser-v2) · SPL Token + Token-2022 ownership maps |
 | **REST API** | Address history · tx facts · wallet balances · token accounts · program activity |
-| **JSON-RPC** | Helius-compatible: `getTransactionsForAddress`, `getTokenAccountsByOwner`, `getTokenSupply`, `getTokenLargestAccounts`, `getProgramAccountsV2`, full DAS API (10 methods), all standard Solana RPC via proxy |
+| **JSON-RPC** | `getTransactionsForAddress`, `getTokenAccountsByOwner`, `getTokenSupply`, `getTokenLargestAccounts`, `getProgramAccountsV2`, full DAS API (10 methods), all standard Solana RPC via proxy |
 | **USD pricing** | Live token prices via [XDex](https://xdex.xyz) — native X1 DEX price oracle |
 | **Priority fees** | `getPriorityFeeEstimate` with all 6 levels: min · low · medium · high · veryHigh · unsafeMax |
 | **Webhooks** | Address · token · program activity triggers with HMAC signing and automatic retry |
@@ -225,7 +225,7 @@ GET /v1/address/{ADDRESS}/txs?block_time_from=1700000000&block_time_to=171000000
 # Full transaction facts (TxFactsV1)
 GET /v1/tx/{SIGNATURE}
 
-# Enhanced transaction (Helius-compatible format)
+# Enhanced transaction (parsed actions, token deltas, sol deltas)
 GET /v1/tx/{SIGNATURE}/enhanced
 
 # Batch fetch (up to 100)
@@ -315,7 +315,7 @@ POST /v1/tx/send               # Send transaction with priority fee estimation
 
 ### JSON-RPC  (`POST /rpc`)
 
-Helius-compatible. Covers all standard Solana RPC methods (proxied to validator) plus Atlas-native methods:
+Covers all standard Solana RPC methods (proxied to validator) plus Atlas-native methods:
 
 ```jsonc
 // Enhanced transaction history
@@ -444,27 +444,26 @@ See `.env.example` for the full reference. Key variables:
 
 ---
 
-## Helius Parity
+## API Coverage
 
-Atlas is designed as a **Helius-equivalent infrastructure layer for X1**. Coverage vs Helius:
-
-| Helius Feature | Atlas | Notes |
+| Feature | Status | Notes |
 |---|---|---|
-| `getTransactionsForAddress` | ✅ | Served from index, sort/filter/range support |
-| DAS API (10 methods) | ✅ | `getAsset`, `searchAssets`, `getAssetsByOwner`, etc. |
-| `getPriorityFeeEstimate` | ✅ | All 6 levels from real validator data |
-| `getTokenAccountsByOwner` | ✅ | Served from `token_owner_map` index |
+| `getTransactionsForAddress` | ✅ | Served from index · sort · filter · time range |
+| DAS API (10 methods) | ✅ | `getAsset`, `searchAssets`, `getAssetsByOwner`, and more |
+| `getPriorityFeeEstimate` | ✅ | All 6 levels: min → unsafeMax from live validator data |
+| `getTokenAccountsByOwner` / V2 | ✅ | Served from `token_owner_map` index · Token-2022 aware |
 | `getTokenSupply` | ✅ | Served from `token_metadata` table |
 | `getTokenLargestAccounts` | ✅ | Top 20 holders from `geyser_accounts` |
 | `getProgramAccountsV2` | ✅ | Paginated proxy |
-| Wallet API (balances/history/transfers/identity/funded-by) | ✅ | With XDex USD pricing |
-| Batch identity lookup | ✅ | Up to 100 addresses |
-| Webhooks with HMAC | ✅ | Address · token · program events |
+| Wallet balances / history / transfers | ✅ | With live XDex USD pricing |
+| Wallet identity + batch identity | ✅ | Up to 100 addresses per request |
+| Funded-by chain | ✅ | Sybil detection / compliance |
+| Webhooks with HMAC | ✅ | Address · token · program events with retry |
 | Standard Solana RPC | ✅ | All methods proxied to validator |
-| Developer CLI | ✅ | `atlas` binary — superset of `helius-cli` |
-| MCP server | ✅ | (`/mcp`) ahead of Helius |
-| WebSocket stream | ✅ | `/v1/stream` — filtered live events |
-| LaserStream gRPC | 🔄 | Planned — Atlas Stream (proprietary) |
+| Developer CLI | ✅ | `atlas` binary — keygen · rpc · tx · wallet · keys · usage |
+| MCP server | ✅ | `/mcp` — native AI agent tool provider (`POST /mcp`) |
+| WebSocket stream | ✅ | `/v1/stream` — filtered live transaction events |
+| Atlas Stream gRPC | 🔄 | Planned — proprietary low-latency streaming service |
 | ZK Compression | ➖ | Not available on X1 yet |
 
 ---

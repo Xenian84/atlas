@@ -1,5 +1,5 @@
 -- Migration 003: token_owner_map
--- Maps owner -> token accounts for balanceChanged queries (Helius parity).
+-- Maps owner -> token accounts for balanceChanged queries.
 
 CREATE TABLE IF NOT EXISTS token_owner_map (
     owner         TEXT NOT NULL,

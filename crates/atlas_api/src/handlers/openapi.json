@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Atlas API — X1 Blockchain Data Layer",
-    "description": "Production-ready blockchain data API for the X1 network. Helius-compatible endpoints for transactions, wallets, tokens, blocks, webhooks, and more.\n\n**Authentication:** Include your API key in the `X-Api-Key` header.\n\n**Rate limits:** Per-key, configurable (default 300 req/min). Headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Window`.",
+    "description": "Production-ready blockchain data API for the X1 network. Standard Solana RPC-compatible endpoints for transactions, wallets, tokens, blocks, webhooks, and more.\n\n**Authentication:** Include your API key in the `X-Api-Key` header.\n\n**Rate limits:** Per-key, configurable (default 300 req/min). Headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Window`.",
     "version": "1.0.0",
     "contact": { "name": "Atlas", "url": "https://atlas.x1.xyz" }
   },
