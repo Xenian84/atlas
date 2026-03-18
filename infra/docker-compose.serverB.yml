@@ -1,0 +1,168 @@
+version: "3.9"
+
+# Atlas — Server B (Consumer / Data / APIs / Explorer)
+# Usage: docker compose -f infra/docker-compose.serverB.yml up -d
+
+networks:
+  atlas:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+
+services:
+  # ── Postgres ──────────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    networks: [atlas]
+    ports:
+      - "127.0.0.1:5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-atlas}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-atlas}
+      POSTGRES_DB: ${POSTGRES_DB:-atlas}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d:ro
+    command: >
+      postgres
+        -c shared_buffers=512MB
+        -c effective_cache_size=2GB
+        -c wal_compression=on
+        -c checkpoint_timeout=10min
+        -c max_wal_size=2GB
+        -c work_mem=16MB
+        -c maintenance_work_mem=256MB
+        -c random_page_cost=1.1
+        -c log_min_duration_statement=500
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-atlas}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis ─────────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    networks: [atlas]
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 1gb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ── Indexer ───────────────────────────────────────────────────────────────────
+  atlas_indexer:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.rust
+      args:
+        CRATE: atlas_indexer
+        BIN: atlas-indexer
+    restart: unless-stopped
+    networks: [atlas]
+    ports:
+      - "127.0.0.1:9100:9100"   # Prometheus metrics
+    env_file: ../.env
+    environment:
+      RUST_LOG: info,atlas_indexer=debug
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis:    { condition: service_healthy }
+    command: stream
+
+  # ── API Gateway ───────────────────────────────────────────────────────────────
+  atlas_api:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.rust
+      args:
+        CRATE: atlas_api
+        BIN: atlas-api
+    restart: unless-stopped
+    networks: [atlas]
+    ports:
+      - "127.0.0.1:8080:8080"
+    env_file: ../.env
+    environment:
+      RUST_LOG: info,atlas_api=debug
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis:    { condition: service_healthy }
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # ── Webhook Worker ────────────────────────────────────────────────────────────
+  atlas_webhooks:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.rust
+      args:
+        CRATE: atlas_webhooks
+        BIN: atlas-webhooks
+    restart: unless-stopped
+    networks: [atlas]
+    env_file: ../.env
+    environment:
+      RUST_LOG: info,atlas_webhooks=debug
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis:    { condition: service_healthy }
+
+  # ── Intelligence Worker ───────────────────────────────────────────────────────
+  atlas_intel:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.rust
+      args:
+        CRATE: atlas_intel
+        BIN: atlas-intel
+    restart: unless-stopped
+    networks: [atlas]
+    env_file: ../.env
+    environment:
+      RUST_LOG: info,atlas_intel=debug
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis:    { condition: service_healthy }
+
+  # ── Explorer (Next.js) ────────────────────────────────────────────────────────
+  explorer:
+    build:
+      context: ../apps/explorer
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    networks: [atlas]
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://atlas_api:8080}
+      NEXT_PUBLIC_CHAIN: ${NEXT_PUBLIC_CHAIN:-x1}
+    depends_on:
+      atlas_api: { condition: service_healthy }
+
+  # ── Nginx (public reverse proxy) ─────────────────────────────────────────────
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    networks: [atlas]
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+    depends_on:
+      - atlas_api
+      - explorer

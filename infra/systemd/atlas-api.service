@@ -1,0 +1,25 @@
+[Unit]
+Description=Atlas API Gateway — Axum REST + JSON-RPC
+After=network.target postgresql.service redis.service
+Wants=postgresql.service redis.service
+
+[Service]
+Type=simple
+User=atlas
+Group=atlas
+WorkingDirectory=/opt/atlas
+EnvironmentFile=/opt/atlas/.env
+ExecStart=/usr/local/bin/atlas-api
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=atlas-api
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/opt/atlas
+
+[Install]
+WantedBy=multi-user.target

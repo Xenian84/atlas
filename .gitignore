@@ -1,0 +1,30 @@
+# Rust build artifacts
+target/
+plugins/atlas-geyser-v2/target/
+
+# Secrets
+*.env
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# Node
+node_modules/
+apps/explorer/.next/
+apps/explorer/out/
+apps/explorer/node_modules/
+
+# Logs / runtime
+*.log
+*.pid
+coverage/
+dist/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo

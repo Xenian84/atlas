@@ -1,0 +1,13 @@
+{
+  "libpath": "/path/to/libatlas_geyser.so",
+
+  "connection_str": "host=127.0.0.1 port=5432 user=atlas dbname=atlas password=YOUR_PASSWORD",
+
+  "threads": 4,
+
+  "batch_size": 250,
+
+  "channel_capacity": 500000,
+
+  "log_every": 100000
+}

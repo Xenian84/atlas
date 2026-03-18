@@ -1,0 +1,56 @@
+global:
+  scrape_interval:     10s
+  evaluation_interval: 10s
+  external_labels:
+    chain: x1
+    env:   production
+
+scrape_configs:
+  - job_name: atlas-api
+    static_configs:
+      - targets: ['host.docker.internal:9100']
+    metrics_path: /metrics
+    relabel_configs:
+      - target_label: service
+        replacement: atlas-api
+
+  - job_name: atlas-indexer
+    static_configs:
+      - targets: ['host.docker.internal:9101']
+    metrics_path: /metrics
+    relabel_configs:
+      - target_label: service
+        replacement: atlas-indexer
+
+  - job_name: postgres
+    static_configs:
+      - targets: ['host.docker.internal:9187']
+    metrics_path: /metrics
+    relabel_configs:
+      - target_label: service
+        replacement: postgres
+
+  - job_name: redis
+    static_configs:
+      - targets: ['host.docker.internal:9121']
+    metrics_path: /metrics
+    relabel_configs:
+      - target_label: service
+        replacement: redis
+
+  - job_name: node-exporter
+    static_configs:
+      - targets: ['host.docker.internal:9200']
+    metrics_path: /metrics
+    relabel_configs:
+      - target_label: service
+        replacement: node
+
+  - job_name: tachyon-validator
+    static_configs:
+      - targets: ['host.docker.internal:8900']
+    metrics_path: /metrics
+    honor_labels: true
+    relabel_configs:
+      - target_label: service
+        replacement: validator

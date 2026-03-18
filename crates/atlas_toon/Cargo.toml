@@ -1,0 +1,9 @@
+[package]
+name    = "atlas_toon"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+atlas_types = { path = "../atlas_types" }
+serde_json  = { workspace = true }
+itertools   = { workspace = true }

@@ -1,0 +1,82 @@
+{
+  "title": "Atlas Platform — X1",
+  "uid": "atlas-x1-main",
+  "schemaVersion": 38,
+  "refresh": "10s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "id": 1, "type": "stat", "title": "Current Slot",
+      "gridPos": { "x": 0, "y": 0, "w": 4, "h": 3 },
+      "targets": [{ "expr": "atlas_indexer_slot", "legendFormat": "slot" }],
+      "options": { "colorMode": "background" }
+    },
+    {
+      "id": 2, "type": "stat", "title": "Indexer Lag (slots)",
+      "gridPos": { "x": 4, "y": 0, "w": 4, "h": 3 },
+      "targets": [{ "expr": "atlas_indexer_lag_slots", "legendFormat": "lag" }],
+      "options": { "colorMode": "background", "thresholds": { "steps": [
+        { "color": "green", "value": 0 },
+        { "color": "yellow", "value": 50 },
+        { "color": "red", "value": 200 }
+      ]}}
+    },
+    {
+      "id": 3, "type": "stat", "title": "TPS (1m)",
+      "gridPos": { "x": 8, "y": 0, "w": 4, "h": 3 },
+      "targets": [{ "expr": "rate(atlas_tx_indexed_total[1m])", "legendFormat": "tps" }]
+    },
+    {
+      "id": 4, "type": "stat", "title": "Shred Stream Events",
+      "gridPos": { "x": 12, "y": 0, "w": 4, "h": 3 },
+      "targets": [{ "expr": "atlas_shred_events_total", "legendFormat": "shreds" }]
+    },
+    {
+      "id": 5, "type": "stat", "title": "Indexed Accounts",
+      "gridPos": { "x": 16, "y": 0, "w": 4, "h": 3 },
+      "targets": [{ "expr": "atlas_indexed_accounts_total", "legendFormat": "accounts" }]
+    },
+    {
+      "id": 6, "type": "stat", "title": "Pending Webhooks",
+      "gridPos": { "x": 20, "y": 0, "w": 4, "h": 3 },
+      "targets": [{ "expr": "atlas_webhook_pending_total", "legendFormat": "pending" }],
+      "options": { "colorMode": "background", "thresholds": { "steps": [
+        { "color": "green", "value": 0 },
+        { "color": "yellow", "value": 10 },
+        { "color": "red", "value": 100 }
+      ]}}
+    },
+    {
+      "id": 7, "type": "timeseries", "title": "TX Indexed Rate",
+      "gridPos": { "x": 0, "y": 3, "w": 12, "h": 6 },
+      "targets": [
+        { "expr": "rate(atlas_tx_indexed_total[1m])", "legendFormat": "confirmed/s" },
+        { "expr": "rate(atlas_shred_events_total[1m])", "legendFormat": "shreds/s" }
+      ]
+    },
+    {
+      "id": 8, "type": "timeseries", "title": "API Latency (p50/p99)",
+      "gridPos": { "x": 12, "y": 3, "w": 12, "h": 6 },
+      "targets": [
+        { "expr": "histogram_quantile(0.50, rate(atlas_api_request_duration_seconds_bucket[5m]))", "legendFormat": "p50" },
+        { "expr": "histogram_quantile(0.99, rate(atlas_api_request_duration_seconds_bucket[5m]))", "legendFormat": "p99" }
+      ]
+    },
+    {
+      "id": 9, "type": "timeseries", "title": "Redis Stream Lengths",
+      "gridPos": { "x": 0, "y": 9, "w": 12, "h": 6 },
+      "targets": [
+        { "expr": "atlas_redis_stream_len{stream=\"atlas:shreds\"}", "legendFormat": "shreds" },
+        { "expr": "atlas_redis_stream_len{stream=\"atlas:newtx\"}", "legendFormat": "newtx" }
+      ]
+    },
+    {
+      "id": 10, "type": "timeseries", "title": "Webhook Delivery Status",
+      "gridPos": { "x": 12, "y": 9, "w": 12, "h": 6 },
+      "targets": [
+        { "expr": "rate(atlas_webhook_delivered_total[5m])", "legendFormat": "delivered/s" },
+        { "expr": "rate(atlas_webhook_failed_total[5m])", "legendFormat": "failed/s" }
+      ]
+    }
+  ]
+}

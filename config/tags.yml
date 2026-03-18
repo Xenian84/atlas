@@ -1,0 +1,43 @@
+# Tag classification rules.
+# Tags are applied to TxFactsV1.tags[] based on action types and program IDs.
+# Rules are evaluated in order; multiple tags can apply to one transaction.
+
+rules:
+  - tag: swap
+    if_action_type: SWAP
+
+  - tag: transfer
+    if_action_type: TRANSFER
+
+  - tag: mint
+    if_action_type: MINT
+
+  - tag: burn
+    if_action_type: BURN
+
+  - tag: stake
+    if_action_type: STAKE
+
+  - tag: unstake
+    if_action_type: UNSTAKE
+
+  - tag: deploy
+    if_action_type: DEPLOY
+
+  - tag: nft
+    if_action_type: NFT_SALE
+
+  - tag: vote
+    if_program: "Vote111111111111111111111111111111111111111111"
+
+  - tag: failed
+    if_status: failed
+
+  - tag: fee_only
+    if_action_count: 0       # no parsed actions — pure fee tx
+
+  - tag: high_compute
+    if_compute_consumed_gte: 800000
+
+  - tag: priority_fee
+    if_priority_fee_gt: 0

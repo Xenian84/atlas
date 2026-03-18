@@ -1,0 +1,29 @@
+[package]
+name    = "atlas_webhooks"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "atlas-webhooks"
+path = "src/main.rs"
+
+[dependencies]
+atlas_types  = { path = "../atlas_types" }
+atlas_common = { path = "../atlas_common" }
+atlas_toon   = { path = "../atlas_toon" }
+
+tokio        = { workspace = true }
+futures      = { workspace = true }
+anyhow       = { workspace = true }
+tracing      = { workspace = true }
+serde        = { workspace = true }
+serde_json   = { workspace = true }
+sqlx         = { workspace = true }
+redis        = { workspace = true }
+reqwest      = { workspace = true }
+hmac         = { workspace = true }
+sha2         = { workspace = true }
+hex          = { workspace = true }
+uuid         = { workspace = true }
+chrono       = { workspace = true }
+metrics      = { workspace = true }

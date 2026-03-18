@@ -1,0 +1,19 @@
+[package]
+name    = "atlas_cli"
+version.workspace = true
+edition.workspace = true
+description = "Atlas CLI — inspect the Atlas platform from the command line"
+
+[[bin]]
+name = "atlas"
+path = "src/main.rs"
+
+[dependencies]
+tokio      = { workspace = true }
+anyhow     = { workspace = true }
+serde      = { workspace = true }
+serde_json = { workspace = true }
+clap       = { workspace = true }
+reqwest    = { workspace = true }
+chrono     = { workspace = true }
+redis      = { workspace = true }

@@ -1,0 +1,23 @@
+# Spam denylist — tokens and programs that should be tagged as spam.
+# Transactions touching any denylisted mint or program receive tags=["spam"].
+# Update regularly as new spam campaigns appear.
+
+tokens:
+  # Common airdrop spam mints (Solana mainnet examples for reference)
+  - "SoLFiHGLGBMRh15jRdfQPnP1M3SbDVT8HBCWK7CJQK"  # example only
+  # Add real spam mint addresses here
+
+programs:
+  # Programs used only for spam/phishing
+  # Add real denylist program IDs here
+
+# Heuristic rules (applied by atlas_parser spam module)
+heuristics:
+  # Tag as spam if tx has no real action and touches known spam program
+  no_action_with_denylist_program: true
+  # Tag as spam if token memo contains common phishing strings
+  phishing_memo_patterns:
+    - "claim your"
+    - "free airdrop"
+    - "visit http"
+    - "limited offer"

@@ -1,0 +1,37 @@
+# Known X1 / Solana program IDs used by atlas_parser to classify actions.
+# Update x1_* entries once X1 mainnet program addresses are confirmed.
+
+core:
+  system:            "11111111111111111111111111111111"
+  stake:             "Stake11111111111111111111111111111111111111112"
+  vote:              "Vote111111111111111111111111111111111111111111"
+  bpf_loader:        "BPFLoader2111111111111111111111111111111111111"
+  bpf_upgradeable:   "BPFLoaderUpgradeab1e11111111111111111111111111"
+  config:            "Config1111111111111111111111111111111111111111"
+  address_lookup:    "AddressLookupTab1e1111111111111111111111111111"
+  compute_budget:    "ComputeBudget111111111111111111111111111111111"
+
+token:
+  spl_token:         "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+  spl_token_2022:    "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+  associated_token:  "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJe8bv"
+  token_metadata:    "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s"
+
+# X1-specific programs
+x1:
+  # XDex AMM program — confirmed on-chain (owner of amm_config accounts)
+  # Docs: https://xdexdocs.gitbook.io/xdex/developers/apis
+  dex:               "sEsYH97wqmfnkzHedjNcw3zyJdPvUmsa9AixhS4b4fN"
+  amm:               "sEsYH97wqmfnkzHedjNcw3zyJdPvUmsa9AixhS4b4fN"
+  nft_marketplace:   "TODO_X1_NFT_MARKETPLACE"
+  bridge:            "TODO_X1_BRIDGE_PROGRAM"
+  staking_liquid:    "TODO_X1_LIQUID_STAKING"
+
+# Well-known Solana DEX programs (for swap detection on Solana-compat mode)
+dex:
+  xdex:              "sEsYH97wqmfnkzHedjNcw3zyJdPvUmsa9AixhS4b4fN"
+  jupiter_v6:        "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4"
+  raydium_v4:        "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8"
+  orca_whirlpool:    "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc"
+  meteora:           "LBUZKhRxPF3XUpBCjp4YzTKgLe4ggQ8kpQEj9bwz9Kx"
+  openbook_v2:       "opnb2LAfJYbRMAHHvqjCwQxanZn7n2L5KxqKnxAFfzb"

@@ -1,0 +1,21 @@
+# Known X1 entity labels — loaded into entity_labels table at startup.
+# Add new entries here and restart atlas-api to pick them up.
+# Format: address, name, category, entity_type
+
+entities:
+  # X1 Native tokens
+  - address: So11111111111111111111111111111111111111112
+    name: Wrapped XNT
+    category: token_program
+    entity_type: program
+
+  - address: B69chRzqzDCmdB5WYB8NRu5Yv5ZA95ABiZcdzCgGm9Tq
+    name: USDC.x
+    category: token_program
+    entity_type: program
+
+  # X1 Validators (add known validator identity keys here)
+  # - address: <validator_identity>
+  #   name: My Validator
+  #   category: validator
+  #   entity_type: validator

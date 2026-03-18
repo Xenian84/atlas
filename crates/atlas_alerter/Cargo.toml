@@ -1,0 +1,20 @@
+[package]
+name    = "atlas_alerter"
+version.workspace = true
+edition.workspace = true
+description = "Atlas alerter — monitors validator and indexer health, fires Telegram/Slack alerts"
+
+[[bin]]
+name = "atlas-alerter"
+path = "src/main.rs"
+
+[dependencies]
+tokio      = { workspace = true }
+anyhow     = { workspace = true }
+serde      = { workspace = true }
+serde_json = { workspace = true }
+reqwest    = { workspace = true }
+tracing    = { workspace = true }
+tracing-subscriber = { workspace = true }
+sqlx       = { workspace = true }
+chrono     = { workspace = true }

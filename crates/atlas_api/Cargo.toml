@@ -1,0 +1,38 @@
+[package]
+name    = "atlas_api"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "atlas-api"
+path = "src/main.rs"
+
+[dependencies]
+atlas_types  = { path = "../atlas_types" }
+atlas_common = { path = "../atlas_common" }
+atlas_toon   = { path = "../atlas_toon" }
+
+tokio        = { workspace = true }
+anyhow       = { workspace = true }
+thiserror    = { workspace = true }
+tracing      = { workspace = true }
+serde        = { workspace = true }
+serde_json   = { workspace = true }
+sqlx         = { workspace = true }
+redis        = { workspace = true }
+axum         = { workspace = true }
+axum-extra   = { workspace = true }
+tower        = { workspace = true }
+tower-http   = { workspace = true }
+uuid         = { workspace = true }
+chrono       = { workspace = true }
+metrics      = { workspace = true }
+reqwest      = { workspace = true }
+hmac         = { workspace = true }
+sha2         = { workspace = true }
+hex          = { workspace = true }
+base64       = { workspace = true }
+bs58         = { workspace = true }
+rust_decimal = { workspace = true }
+tokio-stream = { workspace = true }
+futures      = { workspace = true }

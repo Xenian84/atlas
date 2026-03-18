@@ -1,0 +1,23 @@
+[package]
+name    = "atlas_intel"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "atlas-intel"
+path = "src/main.rs"
+
+[dependencies]
+atlas_types  = { path = "../atlas_types" }
+atlas_common = { path = "../atlas_common" }
+
+tokio        = { workspace = true }
+anyhow       = { workspace = true }
+tracing      = { workspace = true }
+serde        = { workspace = true }
+serde_json   = { workspace = true }
+sqlx         = { workspace = true }
+redis        = { workspace = true }
+chrono       = { workspace = true }
+metrics      = { workspace = true }
+dashmap      = { workspace = true }

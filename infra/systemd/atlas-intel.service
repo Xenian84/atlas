@@ -1,0 +1,24 @@
+[Unit]
+Description=Atlas Intelligence Worker — wallet scoring + profiles
+After=network.target postgresql.service redis.service
+
+[Service]
+Type=simple
+User=atlas
+Group=atlas
+WorkingDirectory=/opt/atlas
+EnvironmentFile=/opt/atlas/.env
+ExecStart=/usr/local/bin/atlas-intel
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=atlas-intel
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/opt/atlas
+
+[Install]
+WantedBy=multi-user.target

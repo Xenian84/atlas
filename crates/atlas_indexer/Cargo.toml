@@ -1,0 +1,40 @@
+[package]
+name    = "atlas_indexer"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "atlas-indexer"
+path = "src/main.rs"
+
+[dependencies]
+atlas_types  = { path = "../atlas_types" }
+atlas_common = { path = "../atlas_common" }
+atlas_parser = { path = "../atlas_parser" }
+
+tokio        = { workspace = true }
+tokio-stream = { workspace = true }
+futures      = { workspace = true }
+anyhow       = { workspace = true }
+tracing      = { workspace = true }
+serde        = { workspace = true }
+serde_json   = { workspace = true }
+sqlx         = { workspace = true }
+redis        = { workspace = true }
+clap         = { workspace = true }
+chrono       = { workspace = true }
+metrics      = { workspace = true }
+metrics-exporter-prometheus = { workspace = true }
+base64       = { workspace = true }
+reqwest      = { workspace = true }
+dashmap      = { workspace = true }
+
+yellowstone-grpc-proto  = { path = "/root/yellowstone-grpc/yellowstone-grpc-proto", features = ["tonic"] }
+yellowstone-grpc-client = { path = "/root/yellowstone-grpc/yellowstone-grpc-client" }
+tonic        = { workspace = true }
+prost        = { workspace = true }
+bs58         = { workspace = true }
+hmac         = { workspace = true }
+sha2         = { workspace = true }
+hex          = { workspace = true }
+uuid         = { workspace = true }

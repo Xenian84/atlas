@@ -1,0 +1,52 @@
+# Multi-stage Rust build for any Atlas crate binary
+# Build arg CRATE = crate directory name (e.g. atlas_indexer)
+# Build arg BIN   = binary name          (e.g. atlas-indexer)
+
+ARG CRATE=atlas_api
+ARG BIN=atlas-api
+
+# ── Builder ───────────────────────────────────────────────────────────────────
+FROM rust:1.77-slim-bookworm AS builder
+ARG CRATE
+ARG BIN
+
+RUN apt-get update && apt-get install -y \
+    pkg-config libssl-dev libpq-dev protobuf-compiler \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+
+# Cache dependencies first
+COPY Cargo.toml Cargo.lock ./
+COPY crates/atlas_types/Cargo.toml   crates/atlas_types/Cargo.toml
+COPY crates/atlas_common/Cargo.toml  crates/atlas_common/Cargo.toml
+COPY crates/atlas_toon/Cargo.toml    crates/atlas_toon/Cargo.toml
+COPY crates/atlas_parser/Cargo.toml  crates/atlas_parser/Cargo.toml
+COPY crates/atlas_indexer/Cargo.toml crates/atlas_indexer/Cargo.toml
+COPY crates/atlas_api/Cargo.toml     crates/atlas_api/Cargo.toml
+COPY crates/atlas_webhooks/Cargo.toml crates/atlas_webhooks/Cargo.toml
+COPY crates/atlas_intel/Cargo.toml   crates/atlas_intel/Cargo.toml
+
+# Create stub lib.rs files for cache layer
+RUN find crates -name Cargo.toml -exec sh -c \
+    'dir=$(dirname $1); mkdir -p $dir/src; echo "fn main(){}" > $dir/src/main.rs; echo "" > $dir/src/lib.rs' \
+    _ {} \;
+
+RUN cargo build --release --bin ${BIN} 2>/dev/null || true
+
+# Full build
+COPY . .
+RUN cargo build --release --bin ${BIN}
+
+# ── Runtime ───────────────────────────────────────────────────────────────────
+FROM debian:bookworm-slim AS runtime
+ARG BIN
+
+RUN apt-get update && apt-get install -y \
+    ca-certificates libssl3 libpq5 curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /build/target/release/${BIN} /usr/local/bin/app
+
+ENV RUST_LOG=info
+ENTRYPOINT ["/usr/local/bin/app"]

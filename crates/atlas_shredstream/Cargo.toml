@@ -1,0 +1,32 @@
+[package]
+name    = "atlas_shredstream"
+version.workspace = true
+edition.workspace = true
+description = "Atlas ShredStream — receives entry batches from the tachyon validator bridge and publishes to Redis atlas:shreds for sub-50ms transaction visibility"
+
+[[bin]]
+name = "atlas-shredstream"
+path = "src/main.rs"
+
+[dependencies]
+atlas_common = { path = "../atlas_common" }
+
+# Async runtime
+tokio  = { workspace = true }
+anyhow = { workspace = true }
+
+# Serialization — bincode wire format + JSON for Redis events
+# AtlasEntryFrame is a primitive-only struct defined identically in both repos.
+# No Solana crate dependency needed — zero version conflict risk.
+bincode    = "1"
+serde      = { workspace = true }
+serde_json = { workspace = true }
+
+# Redis publisher
+redis  = { workspace = true }
+
+# Logging / metrics
+tracing = { workspace = true }
+metrics = { workspace = true }
+metrics-exporter-prometheus = { workspace = true }
+bs58    = { workspace = true }

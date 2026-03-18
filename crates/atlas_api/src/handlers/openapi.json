@@ -1,0 +1,285 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Atlas API — X1 Blockchain Data Layer",
+    "description": "Production-ready blockchain data API for the X1 network. Helius-compatible endpoints for transactions, wallets, tokens, blocks, webhooks, and more.\n\n**Authentication:** Include your API key in the `X-Api-Key` header.\n\n**Rate limits:** Per-key, configurable (default 300 req/min). Headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Window`.",
+    "version": "1.0.0",
+    "contact": { "name": "Atlas", "url": "https://atlas.x1.xyz" }
+  },
+  "servers": [
+    { "url": "http://localhost:8888", "description": "Local" }
+  ],
+  "security": [{ "ApiKey": [] }],
+  "components": {
+    "securitySchemes": {
+      "ApiKey": { "type": "apiKey", "in": "header", "name": "X-Api-Key" }
+    }
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": ["System"],
+        "summary": "Health check",
+        "security": [],
+        "responses": { "200": { "description": "Healthy" } }
+      }
+    },
+    "/v1/network/pulse": {
+      "get": {
+        "tags": ["Network"],
+        "summary": "Network pulse — slot, TPS, indexer stats, top programs",
+        "security": [],
+        "responses": { "200": { "description": "Pulse data" } }
+      }
+    },
+    "/v1/wallet/{address}": {
+      "get": {
+        "tags": ["Wallet"],
+        "summary": "Unified wallet overview — XNT balance, tx history, tokens, identity, profile",
+        "parameters": [
+          { "name": "address", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Wallet overview" },
+          "401": { "description": "Unauthorized" },
+          "429": { "description": "Rate limited" }
+        }
+      }
+    },
+    "/v1/wallet/{address}/history": {
+      "get": {
+        "tags": ["Wallet"],
+        "summary": "Transaction history for a wallet",
+        "parameters": [
+          { "name": "address", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "limit",  "in": "query", "schema": { "type": "integer", "default": 20 } },
+          { "name": "before", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Transaction list" } }
+      }
+    },
+    "/v1/tx/{signature}": {
+      "get": {
+        "tags": ["Transactions"],
+        "summary": "Get transaction by signature",
+        "parameters": [
+          { "name": "signature", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Transaction details" },
+          "404": { "description": "Not found" }
+        }
+      }
+    },
+    "/v1/txs/batch": {
+      "post": {
+        "tags": ["Transactions"],
+        "summary": "Bulk transaction lookup — up to 100 signatures",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "signatures": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "maxItems": 100
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Batch results" } }
+      }
+    },
+    "/v1/block/{slot}": {
+      "get": {
+        "tags": ["Blocks"],
+        "summary": "Block overview — tx count, fees, programs, transactions",
+        "parameters": [
+          { "name": "slot", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Block details" },
+          "404": { "description": "Not indexed" }
+        }
+      }
+    },
+    "/v1/token/{mint}": {
+      "get": {
+        "tags": ["Tokens"],
+        "summary": "Token overview — metadata, supply, holders, 24h transfers",
+        "parameters": [
+          { "name": "mint", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Token details" } }
+      }
+    },
+    "/v1/token/{mint}/holders": {
+      "get": {
+        "tags": ["Tokens"],
+        "summary": "Top token holders sorted by balance",
+        "parameters": [
+          { "name": "mint",   "in": "path",  "required": true, "schema": { "type": "string" } },
+          { "name": "limit",  "in": "query", "schema": { "type": "integer", "default": 20, "maximum": 100 } },
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "default": 0 } }
+        ],
+        "responses": { "200": { "description": "Holders" } }
+      }
+    },
+    "/v1/token/{mint}/transfers": {
+      "get": {
+        "tags": ["Tokens"],
+        "summary": "Recent token transfers",
+        "parameters": [
+          { "name": "mint",   "in": "path",  "required": true, "schema": { "type": "string" } },
+          { "name": "limit",  "in": "query", "schema": { "type": "integer", "default": 20 } },
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "default": 0 } }
+        ],
+        "responses": { "200": { "description": "Transfers" } }
+      }
+    },
+    "/v1/address/{address}/txs": {
+      "get": {
+        "tags": ["Address"],
+        "summary": "Transaction history for an address",
+        "parameters": [
+          { "name": "address", "in": "path",  "required": true, "schema": { "type": "string" } },
+          { "name": "limit",   "in": "query", "schema": { "type": "integer", "default": 20 } }
+        ],
+        "responses": { "200": { "description": "Tx list" } }
+      }
+    },
+    "/v1/webhooks/subscribe": {
+      "post": {
+        "tags": ["Webhooks"],
+        "summary": "Create a webhook subscription",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["url", "event_type"],
+                "properties": {
+                  "url":        { "type": "string" },
+                  "event_type": { "type": "string", "enum": ["address_activity", "program_activity", "token_balance_changed"] },
+                  "address":    { "type": "string" },
+                  "program_id": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Created" } }
+      }
+    },
+    "/v1/webhooks/subscriptions": {
+      "get": {
+        "tags": ["Webhooks"],
+        "summary": "List webhook subscriptions",
+        "responses": { "200": { "description": "Subscriptions" } }
+      }
+    },
+    "/v1/keys": {
+      "get": {
+        "tags": ["API Keys"],
+        "summary": "List all API keys (admin)",
+        "responses": { "200": { "description": "Keys" } }
+      },
+      "post": {
+        "tags": ["API Keys"],
+        "summary": "Create a new API key",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name"],
+                "properties": {
+                  "name":       { "type": "string" },
+                  "tier":       { "type": "string", "enum": ["free", "starter", "pro", "enterprise"] },
+                  "rate_limit": { "type": "integer", "default": 300 },
+                  "email":      { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Key created (raw key returned once)" } }
+      }
+    },
+    "/v1/keys/{id}": {
+      "delete": {
+        "tags": ["API Keys"],
+        "summary": "Revoke an API key by UUID",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Revoked" },
+          "404": { "description": "Not found" }
+        }
+      }
+    },
+    "/rpc": {
+      "post": {
+        "tags": ["JSON-RPC"],
+        "summary": "Solana-compatible JSON-RPC",
+        "description": "Supports: `getBalance`, `getTransaction`, `getSignaturesForAddress` (from Atlas index), `getLatestBlockhash`, `getSlot`, `getBlockHeight` (proxied), DAS methods, `getPriorityFeeEstimate`.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "jsonrpc": { "type": "string", "example": "2.0" },
+                  "id":      { "type": "integer", "example": 1 },
+                  "method":  { "type": "string" },
+                  "params":  { "type": "array" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "JSON-RPC response" } }
+      }
+    },
+    "/v1/stream": {
+      "get": {
+        "tags": ["Stream"],
+        "summary": "WebSocket live transaction stream",
+        "description": "Upgrade to WebSocket. Pass `?key=<api_key>`. Receive JSON events for every confirmed transaction in real-time.",
+        "security": [],
+        "responses": { "101": { "description": "WebSocket upgrade" } }
+      }
+    },
+    "/docs": {
+      "get": {
+        "tags": ["System"],
+        "summary": "Swagger UI documentation",
+        "security": [],
+        "responses": { "200": { "description": "HTML UI" } }
+      }
+    }
+  },
+  "tags": [
+    { "name": "System",       "description": "Health and status" },
+    { "name": "Network",      "description": "Network-wide stats" },
+    { "name": "Wallet",       "description": "Wallet balance, history, tokens" },
+    { "name": "Transactions", "description": "Transaction lookup" },
+    { "name": "Blocks",       "description": "Block data" },
+    { "name": "Tokens",       "description": "SPL token metadata and holders" },
+    { "name": "Address",      "description": "Address transaction history" },
+    { "name": "Webhooks",     "description": "Webhook subscriptions" },
+    { "name": "API Keys",     "description": "API key management" },
+    { "name": "JSON-RPC",     "description": "Solana-compatible RPC" },
+    { "name": "Stream",       "description": "WebSocket live stream" }
+  ]
+}
