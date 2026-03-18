@@ -3,7 +3,7 @@
 # Atlas
 
 **Production-grade blockchain infrastructure for the X1 network.**  
-Helius-parity+ indexer · REST & JSON-RPC API · Webhooks · Wallet Intelligence · Block Explorer
+Helius-parity+ indexer · REST & JSON-RPC API · Webhooks · Wallet Intelligence · Block Explorer · CLI
 
 [![Rust](https://img.shields.io/badge/Rust-1.84+-orange?logo=rust)](https://www.rust-lang.org/)
 [![X1 Network](https://img.shields.io/badge/Network-X1%20Mainnet-blue)](https://x1.xyz)
@@ -41,13 +41,16 @@ Atlas is a self-contained indexing and API platform for the X1 blockchain, built
 | **Transaction indexing** | Real-time streaming via Yellowstone gRPC · backfill CLI · shred-level ingestion |
 | **Account indexing** | Non-blocking geyser plugin (atlas-geyser-v2) · SPL Token + Token-2022 ownership maps |
 | **REST API** | Address history · tx facts · wallet balances · token accounts · program activity |
-| **JSON-RPC** | Helius-compatible `getTransactionsForAddress`, `getTokenAccountsByOwner`, `getTokenSupply`, `getTokenLargestAccounts`, `getProgramAccountsV2`, DAS methods and more |
-| **USD pricing** | Live token prices via [XDex](https://xdex.xyz) (`api.xdex.xyz/api/token-price/price`) |
+| **JSON-RPC** | Helius-compatible: `getTransactionsForAddress`, `getTokenAccountsByOwner`, `getTokenSupply`, `getTokenLargestAccounts`, `getProgramAccountsV2`, full DAS API (10 methods), all standard Solana RPC via proxy |
+| **USD pricing** | Live token prices via [XDex](https://xdex.xyz) — native X1 DEX price oracle |
+| **Priority fees** | `getPriorityFeeEstimate` with all 6 levels: min · low · medium · high · veryHigh · unsafeMax |
 | **Webhooks** | Address · token · program activity triggers with HMAC signing and automatic retry |
 | **Wallet Intelligence** | Bot / sniper / whale / developer classification · risk scores · behavioral profiles |
 | **Block Explorer** | Next.js 14 UI · transaction detail · address history · TOON copy for LLM workflows |
-| **TOON output** | 40% token-efficient structured format for AI agent consumption |
+| **TOON output** | 40% token-efficient structured format for AI agent and script consumption |
 | **LLM explain** | Configurable provider (Ollama / OpenAI / Anthropic) for human-readable tx explanations |
+| **MCP server** | Native Model Context Protocol tool provider for Claude and AI agents |
+| **CLI** | `atlas` binary — keygen, rpc, tx, wallet, token, block, stream, keys, usage · `--json` flag |
 
 ---
 
@@ -79,8 +82,7 @@ ADMIN_API_KEY=your-strong-secret-key
 ### 2. Run Migrations
 
 ```bash
-psql "$DATABASE_URL" -f infra/migrations/001_tx_store.sql
-# ... repeat for 002 through 016, or use a migration tool
+for f in infra/migrations/*.sql; do psql "$DATABASE_URL" -f "$f"; done
 ```
 
 ### 3. Start (Docker)
@@ -92,12 +94,12 @@ docker compose -f infra/docker-compose.serverB.yml up -d
 ### 4. Start from Source
 
 ```bash
-# Build all Rust services
+# Build all Rust services + CLI
 cargo build --release
 
 # Run each service (each reads from .env)
 ./target/release/atlas-indexer stream   # Live transaction indexing
-./target/release/atlas-api              # API server on :8888
+./target/release/atlas-api              # API server  →  :8888
 ./target/release/atlas-webhooks         # Webhook delivery worker
 ./target/release/atlas-intel            # Wallet intelligence worker
 ```
@@ -107,6 +109,102 @@ cargo build --release
 ```bash
 curl http://localhost:8888/health
 # → {"status":"ok","version":"0.1.0"}
+
+atlas status          # Full system health check
+atlas pulse           # Network pulse snapshot
+```
+
+---
+
+## CLI Reference
+
+The `atlas` binary is a developer and operations tool for the Atlas platform. Add `--json` (or `-j`) to any command for machine-readable output — ideal for scripts, CI pipelines, and AI agents.
+
+```bash
+# Install (after cargo build --release)
+cp target/release/atlas /usr/local/bin/atlas
+export ATLAS_API_URL=http://localhost:8888
+export ATLAS_API_KEY=your-key
+```
+
+### Onboarding
+
+```bash
+# Generate an X1 keypair  (writes ~/.atlas/keypair.json)
+atlas keygen
+atlas keygen --output /path/to/keypair.json
+
+# Print all RPC endpoint URLs for this Atlas instance
+atlas rpc
+atlas rpc --json
+```
+
+### Data Queries
+
+```bash
+# Look up a transaction
+atlas tx 5wJb...xyz
+
+# Wallet overview — identity, balances, recent history
+atlas wallet ADDRESS
+
+# Token info + top holders
+atlas token MINT_ADDRESS
+atlas token MINT_ADDRESS --holders
+
+# Block overview
+atlas block 291000000
+
+# Network health + indexer stats
+atlas status
+atlas pulse
+```
+
+### Live Stream
+
+```bash
+# Show last 10 live transaction events
+atlas stream
+
+# Watch continuously  (Ctrl-C to stop)
+atlas stream --watch --count 50
+```
+
+### API Key Management  (admin only)
+
+```bash
+# List all keys + last-used timestamps
+atlas keys list
+atlas keys list --json
+
+# Create a new key
+atlas keys create "my-dapp" --tier pro --rpm 1000
+
+# Show usage stats per key
+atlas usage
+atlas usage --json
+atlas usage at_abc123     # Filter by key prefix
+
+# Revoke a key
+atlas keys revoke KEY_UUID
+```
+
+### JSON Output
+
+Every command supports `--json` for scripting:
+
+```bash
+atlas pulse --json
+# → {"slot":291042100,"tps_1m":847,"indexed_txs_24h":1203847,...}
+
+atlas rpc --json
+# → {"atlas":{"rpc":"http://...","websocket":"ws://..."},"validator":{...}}
+
+atlas tx SIG --json
+# → full TxFactsV1 object
+
+atlas keys list --json
+# → {"count":3,"keys":[{"key_prefix":"at_abc...","tier":"pro",...}]}
 ```
 
 ---
@@ -118,30 +216,50 @@ All endpoints require `X-API-Key: YOUR_KEY` header unless otherwise noted.
 ### Transaction History
 
 ```bash
-# Address history — keyset paginated, no OFFSET
+# Address history — keyset paginated, no OFFSET, sub-100ms
 GET /v1/address/{ADDRESS}/txs?limit=50&sort_order=DESC
 
-# With filters
-GET /v1/address/{ADDRESS}/txs?status=confirmed&block_time_from=1700000000&block_time_to=1710000000
+# With time and status filters
+GET /v1/address/{ADDRESS}/txs?block_time_from=1700000000&block_time_to=1710000000&status=confirmed
 
-# Full transaction facts
+# Full transaction facts (TxFactsV1)
 GET /v1/tx/{SIGNATURE}
 
-# Human-readable explanation
+# Enhanced transaction (Helius-compatible format)
+GET /v1/tx/{SIGNATURE}/enhanced
+
+# Batch fetch (up to 100)
+POST /v1/txs/batch
+{"signatures":["SIG1","SIG2",...]}
+
+# Human-readable LLM explanation
 POST /v1/tx/{SIGNATURE}/explain
 ```
 
-### Wallet
+### Wallet API
 
 ```bash
 # Token balances with live USD prices (XDex)
 GET /v1/wallet/{ADDRESS}/balances
 
-# Wallet identity (entity label, classification)
+# Transaction history with balance changes
+GET /v1/wallet/{ADDRESS}/history?limit=100&type=SWAP
+
+# Token transfers — incoming/outgoing
+GET /v1/wallet/{ADDRESS}/transfers
+
+# Wallet identity (exchange, protocol, KOL, etc.)
 GET /v1/wallet/{ADDRESS}/identity
 
-# Funded-by chain
+# Batch identity lookup (up to 100 addresses)
+POST /v1/wallet/batch-identity
+{"addresses":["ADDR1","ADDR2",...]}
+
+# Funded-by chain (sybil/compliance)
 GET /v1/wallet/{ADDRESS}/funded-by
+
+# One-shot LLM context (TOON format)
+GET /v1/wallet/{ADDRESS}/context
 ```
 
 ### Intelligence
@@ -150,56 +268,88 @@ GET /v1/wallet/{ADDRESS}/funded-by
 # Behavioral profile + risk score
 GET /v1/address/{ADDRESS}/profile?window=7d
 
+# Scores breakdown
+GET /v1/address/{ADDRESS}/scores
+
 # Related wallets (co-occurrence graph)
 GET /v1/address/{ADDRESS}/related
 ```
 
-### JSON-RPC (Helius-compatible)
+### Token
 
 ```bash
-POST /rpc
-Content-Type: application/json
+# Token metadata + supply
+GET /v1/token/{MINT}
 
-# Transaction history
-{"jsonrpc":"2.0","id":1,"method":"getTransactionsForAddress",
- "params":["ADDRESS",{"limit":100,"sortOrder":"DESC"}]}
+# Top holders
+GET /v1/token/{MINT}/holders
 
-# Token accounts by owner
-{"jsonrpc":"2.0","id":1,"method":"getTokenAccountsByOwner",
- "params":["ADDRESS",{"programId":"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"}]}
+# Transfer history
+GET /v1/token/{MINT}/transfers
+```
 
-# Token supply
-{"jsonrpc":"2.0","id":1,"method":"getTokenSupply",
- "params":["MINT_ADDRESS"]}
+### Block
 
-# DAS — assets by owner
-{"jsonrpc":"2.0","id":1,"method":"getAssetsByOwner",
- "params":{"ownerAddress":"ADDRESS","page":1,"limit":100}}
+```bash
+GET /v1/block/{SLOT}
 ```
 
 ### Webhooks
 
 ```bash
-# Subscribe
+# Subscribe to address/token/program events
 POST /v1/webhooks/subscribe
 {"event_type":"address_activity","address":"ADDRESS",
  "url":"https://your-endpoint.com/hook","secret":"your-hmac-secret"}
 
-# List subscriptions
 GET /v1/webhooks/subscriptions
-
-# Delete subscription
 DELETE /v1/webhooks/subscriptions/{ID}
 ```
 
 ### Network
 
 ```bash
-# Live network pulse (compact TOON snapshot)
-GET /v1/network/pulse
+GET /v1/network/pulse          # Live network stats (TOON or JSON)
+POST /v1/tx/send               # Send transaction with priority fee estimation
+```
 
-# Send transaction (priority fee estimation included)
-POST /v1/tx/send
+### JSON-RPC  (`POST /rpc`)
+
+Helius-compatible. Covers all standard Solana RPC methods (proxied to validator) plus Atlas-native methods:
+
+```jsonc
+// Enhanced transaction history
+{"jsonrpc":"2.0","id":1,"method":"getTransactionsForAddress",
+ "params":["ADDRESS",{"limit":100,"sortOrder":"DESC","type":"SWAP"}]}
+
+// Token accounts by owner (served from index)
+{"jsonrpc":"2.0","id":1,"method":"getTokenAccountsByOwner",
+ "params":["ADDRESS",{"programId":"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"}]}
+
+// Token-2022 aware
+{"jsonrpc":"2.0","id":1,"method":"getTokenAccountsByOwnerV2",
+ "params":["ADDRESS",{}]}
+
+// Token supply (from index)
+{"jsonrpc":"2.0","id":1,"method":"getTokenSupply","params":["MINT"]}
+
+// Top 20 holders
+{"jsonrpc":"2.0","id":1,"method":"getTokenLargestAccounts","params":["MINT"]}
+
+// Paginated program accounts
+{"jsonrpc":"2.0","id":1,"method":"getProgramAccountsV2",
+ "params":["PROGRAM_ID",{"page":1,"limit":100}]}
+
+// Priority fee estimate (all 6 levels)
+{"jsonrpc":"2.0","id":1,"method":"getPriorityFeeEstimate",
+ "params":[{"accountKeys":["PROGRAM_ID"],"options":{"includeAllPriorityFeeLevels":true}}]}
+
+// DAS API — full Digital Asset Standard
+{"jsonrpc":"2.0","id":1,"method":"getAssetsByOwner",
+ "params":{"ownerAddress":"ADDRESS","page":1,"limit":100}}
+
+{"jsonrpc":"2.0","id":1,"method":"searchAssets",
+ "params":{"ownerAddress":"ADDRESS","tokenType":"fungible"}}
 ```
 
 ---
@@ -219,7 +369,7 @@ atlas/
 │   ├── atlas_intel/          # Feature extractor + scorer + profile upsert    →  atlas-intel
 │   ├── atlas_shredstream/    # Shred relay helper
 │   ├── atlas_alerter/        # Alerting worker
-│   └── atlas_cli/            # Developer CLI (tx, wallet, token, stream, keys)
+│   └── atlas_cli/            # Developer CLI (keygen, rpc, tx, wallet, token, stream, keys, usage)
 ├── plugins/
 │   └── atlas-geyser-v2/      # Geyser plugin (Validator side — built separately)
 │       ├── src/              # Non-blocking account writer → geyser_accounts + token_owner_map
@@ -236,7 +386,6 @@ atlas/
 │   ├── programs.yml          # X1 + Solana program IDs (XDex: sEsYH97w...)
 │   ├── tags.yml              # Transaction tag classification rules
 │   └── spam.yml              # Token and program denylist
-├── docs/                     # Extended documentation (architecture, API, ops)
 ├── .env.example
 └── README.md
 ```
@@ -245,24 +394,23 @@ atlas/
 
 ## Geyser Plugin (Validator Side)
 
-`plugins/atlas-geyser-v2` is a lightweight, non-blocking Geyser plugin that runs **on the validator** and streams account state changes directly into Atlas's PostgreSQL database.
-
-It is built separately from the main workspace because it pins the Tachyon v2.2.19 ABI:
+`plugins/atlas-geyser-v2` is a lightweight, non-blocking Geyser plugin that runs **on the validator** and streams account state changes directly into Atlas's PostgreSQL database. Forked from [x1-geyser-postgres](https://github.com/x1-labs/x1-geyser-postgres).
 
 ```bash
+# Build (on the validator server — pins Tachyon v2.2.19 ABI)
 cd plugins/atlas-geyser-v2
 rustup override set 1.84.1
 cargo build --release
 # Output: target/release/libatlas_geyser.so
 ```
 
-Copy the `.so` to the validator server, configure with `config.example.json`, then add to `validator.sh`:
+Configure with `config.example.json`, then add to `validator.sh`:
 
 ```bash
 --geyser-plugin-config /etc/tachyon/atlas-geyser-config.json \
 ```
 
-> The validator runs Yellowstone gRPC alongside this plugin — Yellowstone handles transactions, atlas-geyser-v2 handles account state. Neither blocks the other.
+> The validator runs Yellowstone gRPC alongside this plugin — Yellowstone handles transactions, atlas-geyser-v2 handles account state. Neither blocks the validator.
 
 ---
 
@@ -282,15 +430,42 @@ atlas-indexer backfill --from-checkpoint
 
 See `.env.example` for the full reference. Key variables:
 
-| Variable | Description |
-|---|---|
-| `YELLOWSTONE_GRPC_ENDPOINT` | Yellowstone gRPC endpoint (e.g. `http://grpc.tachyon1.network:10000`) |
-| `DATABASE_URL` | PostgreSQL connection string |
-| `REDIS_URL` | Redis connection string |
-| `ADMIN_API_KEY` | Master API key for admin operations |
-| `ATLAS_PRICE_API_URL` | XDex price oracle (default: `https://api.xdex.xyz/api/token-price/price`) |
-| `INDEXER_COMMITMENT` | Indexing commitment level: `processed` · `confirmed` · `finalized` |
-| `LLM_PROVIDER` | Explain provider: `none` · `openai` · `anthropic` · `ollama` |
+| Variable | Default | Description |
+|---|---|---|
+| `YELLOWSTONE_GRPC_ENDPOINT` | — | Yellowstone gRPC endpoint (required) |
+| `DATABASE_URL` | — | PostgreSQL connection string (required) |
+| `REDIS_URL` | `redis://localhost:6379` | Redis connection string |
+| `ADMIN_API_KEY` | — | Master API key for admin operations (required) |
+| `ATLAS_PRICE_API_URL` | `https://api.xdex.xyz/api/token-price/price` | XDex token price oracle |
+| `INDEXER_COMMITMENT` | `confirmed` | Indexing commitment: `processed` · `confirmed` · `finalized` |
+| `LLM_PROVIDER` | `none` | Explain provider: `none` · `openai` · `anthropic` · `ollama` |
+| `LLM_MODEL` | `llama3.2` | Model name (e.g. `gpt-4o`, `claude-3-5-sonnet-20241022`) |
+| `ATLAS_PROGRAMS_CONFIG` | `config/programs.yml` | Known program IDs config path |
+
+---
+
+## Helius Parity
+
+Atlas is designed as a **Helius-equivalent infrastructure layer for X1**. Coverage vs Helius:
+
+| Helius Feature | Atlas | Notes |
+|---|---|---|
+| `getTransactionsForAddress` | ✅ | Served from index, sort/filter/range support |
+| DAS API (10 methods) | ✅ | `getAsset`, `searchAssets`, `getAssetsByOwner`, etc. |
+| `getPriorityFeeEstimate` | ✅ | All 6 levels from real validator data |
+| `getTokenAccountsByOwner` | ✅ | Served from `token_owner_map` index |
+| `getTokenSupply` | ✅ | Served from `token_metadata` table |
+| `getTokenLargestAccounts` | ✅ | Top 20 holders from `geyser_accounts` |
+| `getProgramAccountsV2` | ✅ | Paginated proxy |
+| Wallet API (balances/history/transfers/identity/funded-by) | ✅ | With XDex USD pricing |
+| Batch identity lookup | ✅ | Up to 100 addresses |
+| Webhooks with HMAC | ✅ | Address · token · program events |
+| Standard Solana RPC | ✅ | All methods proxied to validator |
+| Developer CLI | ✅ | `atlas` binary — superset of `helius-cli` |
+| MCP server | ✅ | (`/mcp`) ahead of Helius |
+| WebSocket stream | ✅ | `/v1/stream` — filtered live events |
+| LaserStream gRPC | 🔄 | Planned — Atlas Stream (proprietary) |
+| ZK Compression | ➖ | Not available on X1 yet |
 
 ---
 
@@ -301,7 +476,7 @@ See `.env.example` for the full reference. Key variables:
 | Validator | [Tachyon v2.2.19](https://github.com/x1-labs/tachyon) — X1 network validator |
 | Transaction streaming | [Yellowstone gRPC](https://github.com/rpcpool/yellowstone-grpc) |
 | Account streaming | [x1-geyser-postgres](https://github.com/x1-labs/x1-geyser-postgres) (forked → atlas-geyser-v2) |
-| Price oracle | [XDex](https://xdex.xyz) — native X1 DEX |
+| Price oracle | [XDex](https://xdex.xyz) — native X1 DEX (`api.xdex.xyz`) |
 | API runtime | [Axum](https://github.com/tokio-rs/axum) + Tokio |
 | Database | PostgreSQL 15 + Redis 7 |
 | Explorer | Next.js 14 |
