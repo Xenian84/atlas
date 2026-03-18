@@ -18,18 +18,37 @@ Full-featured indexer · REST & JSON-RPC API · Webhooks · Wallet Intelligence 
 
 Atlas is a self-contained indexing and API platform for the X1 blockchain. It connects to a Tachyon validator via Yellowstone gRPC, indexes every transaction and account state change into PostgreSQL, and exposes a unified REST + JSON-RPC API with sub-100ms response times.
 
-```
-┌─────────────────────────────────┐    ┌───────────────────────────────────────────┐
-│         Server A  (Validator)   │    │              Server B  (Atlas)            │
-│                                 │    │                                           │
-│  Tachyon v2.2.19                │    │  atlas-indexer   ◄── Yellowstone gRPC    │
-│    └── Yellowstone gRPC   ──────┼───►│    └── PostgreSQL + Redis                │
-│    └── atlas-geyser-v2          │    │                                           │
-│         (account state)   ──────┼───►│  atlas-api       (Axum · port 8888)      │
-│                                 │    │  atlas-webhooks  (delivery worker)        │
-└─────────────────────────────────┘    │  atlas-intel     (wallet intelligence)   │
-                                       │  explorer        (Next.js block explorer) │
-                                       └───────────────────────────────────────────┘
+```mermaid
+graph LR
+    subgraph A["🖥️ Server A — Validator"]
+        direction TB
+        T["Tachyon v2.2.19"]
+        YS["Yellowstone gRPC"]
+        GV2["atlas-geyser-v2\n(account state)"]
+        T --> YS
+        T --> GV2
+    end
+
+    subgraph B["⚡ Server B — Atlas"]
+        direction TB
+        IDX["atlas-indexer"]
+        DB[("PostgreSQL\n+ Redis")]
+        API["atlas-api\nAxum · port 8888"]
+        WH["atlas-webhooks\ndelivery worker"]
+        INT["atlas-intel\nwallet intelligence"]
+        EXP["explorer\nNext.js block explorer"]
+        IDX --> DB
+        DB --> API
+        DB --> WH
+        DB --> INT
+        DB --> EXP
+    end
+
+    YS -->|"gRPC stream"| IDX
+    GV2 -->|"account state"| DB
+
+    style A fill:#1a1a2e,stroke:#e94560,color:#fff
+    style B fill:#0f3460,stroke:#e94560,color:#fff
 ```
 
 ---
