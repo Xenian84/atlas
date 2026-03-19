@@ -219,7 +219,8 @@ pub async fn network_tps(
              date_trunc('minute', created_at) AS minute,
              COUNT(*)                          AS tx_count
            FROM tx_store
-           WHERE created_at > now() - interval '60 minutes'
+           WHERE created_at >= now() - interval '61 minutes'
+             AND created_at <  date_trunc('minute', now())   -- exclude current incomplete minute
              AND commitment = 'confirmed'
            GROUP BY 1
            ORDER BY 1 ASC"#
