@@ -135,7 +135,7 @@ fn run_worker(
             Ok(mut client) => {
                 info!("atlas-geyser worker-{id}: connected to postgres");
                 if let Err(e) = write_loop(id, &mut client, &rx, batch_size, log_every, &acc_counter, &tok_counter) {
-                    error!("atlas-geyser worker-{id}: write loop exited: {e}. Reconnecting…");
+                    error!("atlas-geyser worker-{id}: write loop exited: {e:?}. Reconnecting…");
                     thread::sleep(Duration::from_secs(1));
                 }
             }
@@ -180,7 +180,10 @@ fn write_loop(
         let n_acc = batch.len();
         let n_tok = batch.iter().filter(|u| u.token_mint.is_some()).count();
 
-        flush_batch(client, &batch)?;
+        if let Err(e) = flush_batch(client, &batch) {
+            error!("atlas-geyser worker-{id}: flush_batch failed (batch_len={}): {e:?}", batch.len());
+            return Err(e);
+        }
         batch.clear();
 
         local_accounts += n_acc as u64;
@@ -203,18 +206,31 @@ fn write_loop(
 
 /// Upserts one batch using UNNEST — a single round-trip per batch.
 fn flush_batch(client: &mut Client, batch: &[AccountUpdate]) -> Result<(), postgres::Error> {
+    // Deduplicate by pubkey: keep the highest-slot update for each account.
+    // Multiple updates for the same pubkey in one batch cause Postgres to
+    // reject the ON CONFLICT DO UPDATE with "cannot affect row a second time".
+    use std::collections::HashMap;
+    let mut dedup: HashMap<&str, &AccountUpdate> = HashMap::with_capacity(batch.len());
+    for u in batch {
+        dedup
+            .entry(u.pubkey.as_str())
+            .and_modify(|prev| { if u.slot > prev.slot { *prev = u; } })
+            .or_insert(u);
+    }
+    let deduped: Vec<&AccountUpdate> = dedup.into_values().collect();
+
     // ── geyser_accounts ──────────────────────────────────────────────────────
     // Columns:  pubkey TEXT, lamports NUMERIC, owner TEXT, executable BOOL,
     //           data BYTEA, slot BIGINT, is_startup BOOL, written_at TIMESTAMPTZ
-    let mut pubkeys:     Vec<&str>  = Vec::with_capacity(batch.len());
-    let mut lamports:    Vec<String>= Vec::with_capacity(batch.len());
-    let mut owners:      Vec<&str>  = Vec::with_capacity(batch.len());
-    let mut executables: Vec<bool>  = Vec::with_capacity(batch.len());
-    let mut datas:       Vec<&[u8]> = Vec::with_capacity(batch.len());
-    let mut slots:       Vec<i64>   = Vec::with_capacity(batch.len());
-    let mut startups:    Vec<bool>  = Vec::with_capacity(batch.len());
+    let mut pubkeys:     Vec<&str>  = Vec::with_capacity(deduped.len());
+    let mut lamports:    Vec<String>= Vec::with_capacity(deduped.len());
+    let mut owners:      Vec<&str>  = Vec::with_capacity(deduped.len());
+    let mut executables: Vec<bool>  = Vec::with_capacity(deduped.len());
+    let mut datas:       Vec<&[u8]> = Vec::with_capacity(deduped.len());
+    let mut slots:       Vec<i64>   = Vec::with_capacity(deduped.len());
+    let mut startups:    Vec<bool>  = Vec::with_capacity(deduped.len());
 
-    for u in batch {
+    for u in &deduped {
         pubkeys.push(&u.pubkey);
         lamports.push(u.lamports.to_string());
         owners.push(&u.owner);
@@ -261,7 +277,7 @@ fn flush_batch(client: &mut Client, batch: &[AccountUpdate]) -> Result<(), postg
 
     // ── token_owner_map ──────────────────────────────────────────────────────
     // Columns:  token_account TEXT, mint TEXT, owner TEXT, updated_at TIMESTAMPTZ
-    let token_updates: Vec<(&str, &str, &str)> = batch
+    let token_updates: Vec<(&str, &str, &str)> = deduped
         .iter()
         .filter_map(|u| {
             if let (Some(mint), Some(wallet)) = (&u.token_mint, &u.token_owner) {
