@@ -22,12 +22,12 @@ export default async function AddressPage({
   params,
   searchParams,
 }: {
-  params: { addr: string };
-  searchParams: { before?: string; type?: string };
+  params: Promise<{ addr: string }>;
+  searchParams: Promise<{ before?: string; type?: string }>;
 }) {
-  const addr   = params.addr;
-  const before = searchParams.before;
-  const txType = searchParams.type ?? 'all';
+  const { addr }              = await params;
+  const { before, type }      = await searchParams;
+  const txType                = type ?? 'all';
 
   const [txPage, profile] = await Promise.allSettled([
     fetchAddressTxs(addr, before, 50, txType),

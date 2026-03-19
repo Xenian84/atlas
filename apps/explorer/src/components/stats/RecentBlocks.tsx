@@ -3,39 +3,33 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { rpc } from '@/lib/atlasRpc';
 import { clientFetch } from '@/lib/api';
 
-interface Block { slot: number; blockTime: number | null; txCount: number; leader: string; }
+interface Block { slot: number; blockTime: number | null; txCount: number; }
 
 interface AtlasBlock {
   slot: number;
   block_time: number | null;
   tx_count: number;
-  programs: string[];
+  success_count: number;
+  failed_count: number;
+  total_fees: number;
 }
 
 async function fetchRecentBlocks(): Promise<Block[]> {
   const currentSlot = await rpc<number>('getSlot');
-  // Fetch last 8 slots from Atlas indexed data (accurate tx counts)
-  const slots = Array.from({ length: 8 }, (_, i) => currentSlot - i);
+  // Try the last 12 slots — some may be empty or not yet indexed
+  const slots = Array.from({ length: 12 }, (_, i) => currentSlot - i);
 
-  const results = await Promise.all(
-    slots.map(async slot => {
-      try {
-        const b = await clientFetch<AtlasBlock>(`/v1/block/${slot}`);
-        // Get leader from validator RPC (lightweight — no tx details)
-        let leader = '';
-        try {
-          const rb = await rpc<{ rewards?: { pubkey: string; rewardType: string }[] }>(
-            'getBlock',
-            [slot, { transactionDetails: 'none', rewards: true, maxSupportedTransactionVersion: 0 }]
-          );
-          leader = rb.rewards?.find(r => r.rewardType === 'Fee')?.pubkey ?? '';
-        } catch { /* leader optional */ }
-        return { slot, blockTime: b.block_time, txCount: b.tx_count, leader };
-      } catch { return null; }
-    })
+  const results = await Promise.allSettled(
+    slots.map(slot => clientFetch<AtlasBlock>(`/v1/block/${slot}`))
   );
 
-  return results.filter((b): b is Block => b !== null && b.txCount > 0);
+  return results
+    .map((r, i) => r.status === 'fulfilled' && r.value.tx_count > 0
+      ? { slot: slots[i], blockTime: r.value.block_time, txCount: r.value.tx_count }
+      : null
+    )
+    .filter((b): b is Block => b !== null)
+    .slice(0, 8);
 }
 
 const timeAgo = (ts: number | null) => {
@@ -45,8 +39,6 @@ const timeAgo = (ts: number | null) => {
   if (d < 3600) return `${Math.floor(d / 60)}m ago`;
   return `${Math.floor(d / 3600)}h ago`;
 };
-
-const shorten = (a: string) => a ? `${a.slice(0, 4)}…${a.slice(-4)}` : '—';
 
 export default function RecentBlocks() {
   const [blocks, setBlocks]   = useState<Block[]>([]);
@@ -80,13 +72,16 @@ export default function RecentBlocks() {
             <div key={i} className="skeleton" style={{ height: 32, marginTop: 8 }} />
           ))}
         </div>
+      ) : blocks.length === 0 ? (
+        <div style={{ padding: '20px', fontFamily: 'var(--font-mono)', fontSize: 10, color: 'hsl(var(--foreground-muted))' }}>
+          Waiting for indexed blocks…
+        </div>
       ) : (
         <table className="atlas-table">
           <thead>
             <tr>
               <th>SLOT</th>
               <th>TXS</th>
-              <th>LEADER</th>
               <th style={{ textAlign: 'right' }}>TIME</th>
             </tr>
           </thead>
@@ -104,14 +99,6 @@ export default function RecentBlocks() {
                   </a>
                 </td>
                 <td style={{ color: 'hsl(var(--foreground))' }}>{b.txCount.toLocaleString()}</td>
-                <td>
-                  <a href={`/address/${b.leader}`} style={{
-                    fontFamily: 'var(--font-mono)', fontSize: 10,
-                    color: 'hsl(var(--foreground-secondary))', textDecoration: 'none',
-                  }}>
-                    {shorten(b.leader)}
-                  </a>
-                </td>
                 <td style={{ textAlign: 'right', color: 'hsl(var(--foreground-tertiary))' }}>
                   {timeAgo(b.blockTime)}
                 </td>

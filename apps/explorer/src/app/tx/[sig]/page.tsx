@@ -1,15 +1,15 @@
-import { fetchTx, explainTx, abbrev, lamportsToXnt, type TxFacts } from '@/lib/api';
+import { fetchTx, abbrev, lamportsToXnt, type TxFacts } from '@/lib/api';
 import { ActionCard } from '@/components/ActionCard';
 import { TokenDeltaTable } from '@/components/TokenDeltaTable';
 import { TagBadge } from '@/components/TagBadge';
-import { ExplainPanel } from '@/components/ExplainPanel';
-import { CopyButton } from '@/components/CopyButton';
+import { TxActions } from '@/components/TxActions';
 
-export default async function TxPage({ params }: { params: { sig: string } }) {
+export default async function TxPage({ params }: { params: Promise<{ sig: string }> }) {
+  const { sig: sigParam } = await params;
   let facts: TxFacts | null = null;
   let error: string | null  = null;
 
-  try { facts = await fetchTx(params.sig); }
+  try { facts = await fetchTx(sigParam); }
   catch (e: unknown) { error = e instanceof Error ? e.message : 'Failed to load transaction'; }
 
   if (error || !facts) {
@@ -27,7 +27,7 @@ export default async function TxPage({ params }: { params: { sig: string } }) {
     );
   }
 
-  const sig       = facts.sig;
+  const sig       = sigParam;
   const isSuccess = facts.status === 'success';
 
   return (
@@ -145,18 +145,8 @@ export default async function TxPage({ params }: { params: { sig: string } }) {
         </Section>
       )}
 
-      {/* ── Actions: explain + copy ─────────────────────────── */}
-      <div style={{ display: 'flex', gap: 10 }}>
-        <ExplainPanel sig={sig} />
-        <CopyButton
-          label="Copy Facts (TOON)"
-          getValue={async () => {
-            const { explainTx: fe } = await import('@/lib/api');
-            const data = await fe(sig);
-            return data.factsToon ?? '';
-          }}
-        />
-      </div>
+      {/* ── AI Explain + Copy ───────────────────────────────── */}
+      <TxActions sig={sig} />
     </div>
   );
 }

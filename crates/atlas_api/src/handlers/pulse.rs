@@ -181,3 +181,37 @@ fn render_pulse_toon(p: &serde_json::Value) -> String {
 
     out
 }
+
+/// GET /v1/network/tps — per-minute TPS over the last hour from indexed tx_store.
+/// Returns Atlas-native data (no validator RPC needed) for the TPS chart.
+pub async fn network_tps(
+    State(state): State<AppState>,
+) -> Result<axum::Json<serde_json::Value>, ApiError> {
+    use sqlx::Row;
+    let pool = state.pool();
+
+    let rows = sqlx::query(
+        r#"SELECT
+             date_trunc('minute', created_at) AS minute,
+             COUNT(*)                          AS tx_count
+           FROM tx_store
+           WHERE created_at > now() - interval '60 minutes'
+             AND commitment = 'confirmed'
+           GROUP BY 1
+           ORDER BY 1 ASC"#
+    )
+    .fetch_all(pool)
+    .await?;
+
+    let samples: Vec<serde_json::Value> = rows.iter().map(|r| {
+        let minute: chrono::DateTime<chrono::Utc> = r.try_get("minute").unwrap_or_default();
+        let tx_count: i64 = r.try_get("tx_count").unwrap_or(0);
+        json!({
+            "time":  minute.format("%H:%M").to_string(),
+            "ts":    minute.timestamp(),
+            "tps":   tx_count / 60,
+        })
+    }).collect();
+
+    Ok(axum::Json(json!({ "samples": samples })))
+}
