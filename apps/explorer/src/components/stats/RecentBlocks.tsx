@@ -1,24 +1,41 @@
 'use client';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { rpc } from '@/lib/atlasRpc';
+import { clientFetch } from '@/lib/api';
 
 interface Block { slot: number; blockTime: number | null; txCount: number; leader: string; }
 
+interface AtlasBlock {
+  slot: number;
+  block_time: number | null;
+  tx_count: number;
+  programs: string[];
+}
+
 async function fetchRecentBlocks(): Promise<Block[]> {
   const currentSlot = await rpc<number>('getSlot');
-  const slots       = await rpc<number[]>('getBlocksWithLimit', [currentSlot - 20, 10]);
-  return Promise.all(
-    slots.slice(-8).reverse().map(async slot => {
+  // Fetch last 8 slots from Atlas indexed data (accurate tx counts)
+  const slots = Array.from({ length: 8 }, (_, i) => currentSlot - i);
+
+  const results = await Promise.all(
+    slots.map(async slot => {
       try {
-        const b = await rpc<{
-          blockTime: number | null;
-          transactions: unknown[];
-          rewards?: { pubkey: string; rewardType: string }[];
-        }>('getBlock', [slot, { transactionDetails: 'none', rewards: true, maxSupportedTransactionVersion: 0 }]);
-        return { slot, blockTime: b.blockTime, txCount: b.transactions?.length ?? 0, leader: b.rewards?.find(r => r.rewardType === 'Fee')?.pubkey ?? '' };
-      } catch { return { slot, blockTime: null, txCount: 0, leader: '' }; }
+        const b = await clientFetch<AtlasBlock>(`/v1/block/${slot}`);
+        // Get leader from validator RPC (lightweight — no tx details)
+        let leader = '';
+        try {
+          const rb = await rpc<{ rewards?: { pubkey: string; rewardType: string }[] }>(
+            'getBlock',
+            [slot, { transactionDetails: 'none', rewards: true, maxSupportedTransactionVersion: 0 }]
+          );
+          leader = rb.rewards?.find(r => r.rewardType === 'Fee')?.pubkey ?? '';
+        } catch { /* leader optional */ }
+        return { slot, blockTime: b.block_time, txCount: b.tx_count, leader };
+      } catch { return null; }
     })
   );
+
+  return results.filter((b): b is Block => b !== null && b.txCount > 0);
 }
 
 const timeAgo = (ts: number | null) => {

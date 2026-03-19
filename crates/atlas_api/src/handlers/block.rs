@@ -11,17 +11,16 @@ pub async fn get_block(
 ) -> Result<Json<Value>, ApiError> {
     let pool = state.pool();
 
-    // Block summary from tx_store — restrict to 'confirmed' so shred rows
-    // (which have block_time=NULL) don't cause MIN(block_time) to return NULL.
+    // Block summary — two separate queries to avoid LATERAL UNNEST row-multiplication.
+    // LATERAL UNNEST(programs) would multiply tx rows by program count, inflating
+    // tx_count and total_fees incorrectly.
     let summary = sqlx::query(
-        r#"SELECT COUNT(*)                     AS tx_count,
-                  COUNT(*) FILTER (WHERE status = 1) AS success_count,
-                  COUNT(*) FILTER (WHERE status = 2) AS failed_count,
-                  SUM(fee_lamports)            AS total_fees,
-                  MIN(block_time)              AS block_time,
-                  array_agg(DISTINCT prog) FILTER (WHERE prog IS NOT NULL) AS programs
-           FROM tx_store,
-                LATERAL UNNEST(programs) AS prog
+        r#"SELECT COUNT(*)                               AS tx_count,
+                  COUNT(*) FILTER (WHERE status = 1)    AS success_count,
+                  COUNT(*) FILTER (WHERE status = 2)    AS failed_count,
+                  COALESCE(SUM(fee_lamports), 0)::bigint AS total_fees,
+                  MIN(block_time)                        AS block_time
+           FROM tx_store
            WHERE slot = $1 AND commitment = 'confirmed'"#
     )
     .bind(slot)
@@ -29,7 +28,7 @@ pub async fn get_block(
     .await?
     .ok_or_else(|| ApiError::NotFound(format!("block {} not found or not indexed", slot)))?;
 
-    let tx_count:    i64 = summary.try_get("tx_count").unwrap_or(0);
+    let tx_count: i64 = summary.try_get("tx_count").unwrap_or(0);
     if tx_count == 0 {
         return Err(ApiError::NotFound(format!("block {} not found or not indexed", slot)));
     }
@@ -38,11 +37,25 @@ pub async fn get_block(
     let failed_count:  i64         = summary.try_get("failed_count").unwrap_or(0);
     let total_fees:    i64         = summary.try_get("total_fees").unwrap_or(0);
     let block_time:    Option<i64> = summary.try_get("block_time").unwrap_or(None);
-    let programs: Vec<String>      = summary.try_get("programs").unwrap_or_default();
 
-    // Recent transactions in this block (first 20)
+    // Collect distinct programs in a second query to avoid multiplying rows.
+    let prog_rows = sqlx::query(
+        "SELECT DISTINCT UNNEST(programs) AS prog FROM tx_store WHERE slot = $1 AND commitment = 'confirmed'"
+    )
+    .bind(slot)
+    .fetch_all(pool)
+    .await
+    .unwrap_or_default();
+
+    let programs: Vec<String> = prog_rows.iter()
+        .filter_map(|r| r.try_get::<String, _>("prog").ok())
+        .take(10)
+        .collect();
+
+    // Recent transactions (first 20) ordered by position in block.
     let txs = sqlx::query(
-        "SELECT sig, pos, status, fee_lamports, tags FROM tx_store WHERE slot = $1 AND commitment = 'confirmed' ORDER BY pos ASC LIMIT 20"
+        "SELECT sig, pos, status, fee_lamports, tags FROM tx_store \
+         WHERE slot = $1 AND commitment = 'confirmed' ORDER BY pos ASC LIMIT 20"
     )
     .bind(slot)
     .fetch_all(pool)
@@ -64,7 +77,7 @@ pub async fn get_block(
         "success_count": success_count,
         "failed_count":  failed_count,
         "total_fees":    total_fees,
-        "programs":      programs.iter().take(10).collect::<Vec<_>>(),
+        "programs":      programs,
         "transactions":  transactions,
     })))
 }
