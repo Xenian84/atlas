@@ -17,6 +17,7 @@ pub mod block;
 pub mod batch;
 pub mod keys;
 pub mod docs;
+pub mod trace;
 
 use axum::{Router, routing::{get, post, delete}, middleware};
 use tower_http::{cors::CorsLayer, trace::TraceLayer, compression::CompressionLayer};
@@ -68,6 +69,8 @@ pub fn build_router(state: AppState) -> Router {
         // ── API key management (admin) ────────────────────────────────────
         .route("/v1/keys",                       post(keys::create_key).get(keys::list_keys))
         .route("/v1/keys/:id",                   delete(keys::revoke_key))
+        // ── Trace / counterparty graph ────────────────────────────────────
+        .route("/v1/trace/:addr",                get(trace::get_trace))
         // ── Transaction sender ────────────────────────────────────────────
         .route("/v1/tx/send",                    post(sender::send_transaction))
         .route_layer(middleware::from_fn_with_state(state.clone(), auth_middleware));

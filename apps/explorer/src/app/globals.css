@@ -18,3 +18,22 @@ body {
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: #111827; }
 ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+
+/* Trace spinner */
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* React Flow overrides for dark theme */
+.react-flow__controls button {
+  background: rgba(10,15,20,0.9) !important;
+  border-color: rgba(255,255,255,0.1) !important;
+  color: #a6adc8 !important;
+}
+.react-flow__controls button:hover { background: rgba(30,35,50,0.95) !important; }
+.react-flow__edge-path { filter: drop-shadow(0 0 2px rgba(0,229,255,0.15)); }
+
+/* Date input dark theme */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.5);
+  cursor: pointer;
+}
+select option { background: #0a0f14; color: #cdd6f4; }
