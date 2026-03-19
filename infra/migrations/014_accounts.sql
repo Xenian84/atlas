@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS geyser_accounts (
     lamports    BIGINT      NOT NULL,
     owner       TEXT        NOT NULL DEFAULT '',
     executable  BOOLEAN     NOT NULL DEFAULT FALSE,
-    data        TEXT        NOT NULL DEFAULT '',   -- hex-encoded raw account data
+    data        BYTEA,                             -- raw account data from Geyser plugin
     slot        BIGINT      NOT NULL,
     is_startup  BOOLEAN     NOT NULL DEFAULT FALSE,
     written_at  TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -47,7 +47,7 @@ BEGIN
         NEW.lamports,
         CASE WHEN NEW.owner = '' THEN '11111111111111111111111111111111' ELSE NEW.owner END,
         NEW.executable,
-        length(NEW.data) / 2,   -- hex-encoded, 2 chars per byte
+        COALESCE(octet_length(NEW.data), 0),
         NEW.slot,
         NEW.written_at
     )
