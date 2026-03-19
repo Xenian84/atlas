@@ -34,11 +34,12 @@ export default function StatsPage() {
 
   useEffect(() => { load(); const iv = setInterval(load, 8_000); return () => clearInterval(iv); }, [load]);
 
-  const tps        = pulse?.tps_1m         ? Math.round(pulse.tps_1m).toLocaleString()       : epoch?.absoluteSlot ? '—' : '…';
-  const slot       = epoch?.absoluteSlot   ? epoch.absoluteSlot.toLocaleString()             : '…';
-  const price      = pulse?.xnt_price_usd  ? `$${pulse.xnt_price_usd.toFixed(4)}`           : '—';
-  const tvl        = pulse?.indexed_txs_24h ? pulse.indexed_txs_24h.toLocaleString()         : '—';
-  const validators = pulse?.active_wallets?.toLocaleString() ?? '—';
+  const tps        = pulse?.tps_1m              ? Math.round(pulse.tps_1m).toLocaleString()         : epoch?.absoluteSlot ? '—' : '…';
+  const slot       = epoch?.absoluteSlot        ? epoch.absoluteSlot.toLocaleString()               : '…';
+  const price      = pulse?.xnt_price_usd       ? `$${pulse.xnt_price_usd.toFixed(4)}`             : '—';
+  const txs24h     = pulse?.indexed_txs_24h     ? pulse.indexed_txs_24h.toLocaleString()           : '—';
+  const wallets24h = pulse?.active_wallets_24h  ? pulse.active_wallets_24h.toLocaleString()        : '—';
+  const lag        = pulse?.indexer?.lag_slots  ? `${pulse.indexer.lag_slots.toLocaleString()} slots behind` : null;
 
   return (
     <div style={{ minHeight: 'calc(100vh - 52px)', background: 'hsl(var(--background))' }}>
@@ -72,17 +73,30 @@ export default function StatsPage() {
         {/* ── Hero stat grid ─────────────────────────────────── */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', border: '1px solid hsl(var(--border))' }}>
           {([
-            { label: 'CURRENT SLOT',  value: slot,       accentVar: 'primary',       live: true  },
-            { label: 'TPS (1m AVG)',   value: tps,        accentVar: 'accent-blue',   live: true  },
-            { label: 'X1 PRICE',      value: price,      accentVar: 'accent-green',  live: false },
-            { label: 'ACTIVE WALLETS',value: validators, accentVar: 'accent-purple', live: false },
-            { label: 'TXS (24h)',     value: tvl,        accentVar: 'accent-amber',  live: false },
+            { label: 'CURRENT SLOT',      value: slot,       accentVar: 'primary',       live: true  },
+            { label: 'TPS (1m AVG)',       value: tps,        accentVar: 'accent-blue',   live: true  },
+            { label: 'X1 PRICE',          value: price,      accentVar: 'accent-green',  live: false },
+            { label: 'WALLETS (24h)',      value: wallets24h, accentVar: 'accent-purple', live: false },
+            { label: 'TXS INDEXED (24h)', value: txs24h,     accentVar: 'accent-amber',  live: false },
           ] as const).map(({ label, value, accentVar, live }, i) => (
             <div key={label} style={{ borderRight: i < 4 ? '1px solid hsl(var(--border))' : 'none' }}>
               <StatCard label={label} value={value} accentVar={accentVar} live={live} />
             </div>
           ))}
         </div>
+
+        {/* ── Indexer lag warning ────────────────────────────── */}
+        {lag && (
+          <div style={{
+            fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '.06em',
+            padding: '8px 14px',
+            background: 'hsla(var(--accent-amber),.08)',
+            border: '1px solid hsla(var(--accent-amber),.3)',
+            color: 'hsl(var(--accent-amber))',
+          }}>
+            ⚠ Indexer is {lag} — live data may be delayed
+          </div>
+        )}
 
         {/* ── TPS chart + Epoch ──────────────────────────────── */}
         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12 }}>

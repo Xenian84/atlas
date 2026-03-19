@@ -9,7 +9,8 @@ interface Props {
   live?: boolean;
 }
 
-export default function StatCard({ label, value, sub, accentVar = 'var(--primary)', live }: Props) {
+export default function StatCard({ label, value, sub, accentVar = 'primary', live }: Props) {
+  const cssColor = accentVar.startsWith('var(') ? accentVar : `var(--${accentVar})`;
   return (
     <div style={{
       background: 'hsl(var(--card))',
@@ -21,7 +22,7 @@ export default function StatCard({ label, value, sub, accentVar = 'var(--primary
       {/* Accent top bar */}
       <div style={{
         position: 'absolute', top: 0, left: 0, right: 0, height: 2,
-        background: `linear-gradient(90deg, hsl(${accentVar}) 0%, transparent 70%)`,
+        background: `linear-gradient(90deg, hsl(${cssColor}) 0%, transparent 70%)`,
       }} />
 
       {/* Label row */}

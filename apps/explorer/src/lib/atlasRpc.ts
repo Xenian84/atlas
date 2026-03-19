@@ -93,11 +93,19 @@ export interface VoteAccountsResult {
 }
 
 export interface NetworkPulse {
-  slot: number;
-  tps_1m?: number;
-  indexed_txs_24h?: number;
-  active_wallets?: number;
-  xnt_price_usd?: number;
+  slot:                number;
+  block_time?:         number;
+  tps_1m?:             number;
+  indexed_txs_24h?:    number;
+  active_wallets_24h?: number;
+  xnt_price_usd?:      number;
+  indexer?: {
+    indexed_slot:      number;
+    lag_slots:         number;
+    indexed_accounts:  number;
+    indexed_tokens:    number;
+    pending_webhooks:  number;
+  };
 }
 
 export const getEpochInfo    = () => rpc<EpochInfo>('getEpochInfo');

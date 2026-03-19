@@ -1,25 +1,42 @@
-const TAG_STYLES: Record<string, string> = {
-  spam:          'bg-red-950 text-red-300 border-red-800',
-  failed:        'bg-red-950 text-red-300 border-red-800',
-  swap:          'bg-green-950 text-green-300 border-green-800',
-  transfer:      'bg-blue-950 text-blue-300 border-blue-800',
-  mint:          'bg-purple-950 text-purple-300 border-purple-800',
-  burn:          'bg-orange-950 text-orange-300 border-orange-800',
-  stake:         'bg-yellow-950 text-yellow-300 border-yellow-800',
-  deploy:        'bg-cyan-950 text-cyan-300 border-cyan-800',
-  priority_fee:  'bg-gray-800 text-gray-300 border-gray-600',
-  high_compute:  'bg-gray-800 text-gray-300 border-gray-600',
-}
+import React from 'react';
+
+const TAG_MAP: Record<string, { bg: string; color: string; border: string }> = {
+  spam:          { bg: 'hsla(0,70%,20%,.25)',   color: 'hsl(0 70% 70%)',   border: 'hsla(0,70%,40%,.4)' },
+  failed:        { bg: 'hsla(0,70%,20%,.25)',   color: 'hsl(0 70% 70%)',   border: 'hsla(0,70%,40%,.4)' },
+  swap:          { bg: 'hsla(142,60%,18%,.3)',  color: 'hsl(142 55% 60%)', border: 'hsla(142,55%,35%,.4)' },
+  transfer:      { bg: 'hsla(217,70%,18%,.3)',  color: 'hsl(217 70% 65%)', border: 'hsla(217,70%,40%,.4)' },
+  mint:          { bg: 'hsla(270,60%,20%,.3)',  color: 'hsl(270 60% 70%)', border: 'hsla(270,60%,40%,.4)' },
+  burn:          { bg: 'hsla(25,80%,18%,.3)',   color: 'hsl(25 80% 65%)',  border: 'hsla(25,80%,40%,.4)' },
+  stake:         { bg: 'hsla(48,80%,18%,.3)',   color: 'hsl(48 80% 65%)',  border: 'hsla(48,80%,40%,.4)' },
+  deploy:        { bg: 'hsla(185,80%,15%,.3)',  color: 'hsl(185 70% 60%)', border: 'hsla(185,70%,35%,.4)' },
+  priority_fee:  { bg: 'hsl(var(--background-secondary))', color: 'hsl(var(--foreground-tertiary))', border: 'hsl(var(--border-strong))' },
+  high_compute:  { bg: 'hsl(var(--background-secondary))', color: 'hsl(var(--foreground-tertiary))', border: 'hsl(var(--border-strong))' },
+  fee_only:      { bg: 'hsl(var(--background-secondary))', color: 'hsl(var(--foreground-muted))',    border: 'hsl(var(--border))' },
+};
+
+const DEFAULT_STYLE = {
+  bg: 'hsl(var(--background-secondary))',
+  color: 'hsl(var(--foreground-tertiary))',
+  border: 'hsl(var(--border-strong))',
+};
 
 export function TagBadge({ tag }: { tag: string }) {
-  const style = TAG_STYLES[tag] ?? 'bg-gray-900 text-gray-400 border-gray-700'
+  const s = TAG_MAP[tag] ?? DEFAULT_STYLE;
   return (
-    <span className={`px-2 py-0.5 rounded border text-xs font-mono ${style}`}>
-      {tag}
+    <span style={{
+      fontFamily: 'var(--font-mono)',
+      fontSize: 9,
+      letterSpacing: '.08em',
+      padding: '2px 7px',
+      background: s.bg,
+      color: s.color,
+      border: `1px solid ${s.border}`,
+    }}>
+      {tag.toUpperCase().replace(/_/g, ' ')}
     </span>
-  )
+  );
 }
 
 export function SpamBadge() {
-  return <TagBadge tag="spam" />
+  return <TagBadge tag="spam" />;
 }
