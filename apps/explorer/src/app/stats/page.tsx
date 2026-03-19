@@ -35,7 +35,7 @@ export default function StatsPage() {
 
   const tps        = pulse?.tps_1m              ? Math.round(pulse.tps_1m).toLocaleString()         : epoch?.absoluteSlot ? '—' : '…';
   const slot       = epoch?.absoluteSlot        ? epoch.absoluteSlot.toLocaleString()               : '…';
-  const price      = pulse?.xnt_price_usd       ? `$${pulse.xnt_price_usd.toFixed(4)}`             : '—';
+  const price      = pulse?.xnt_price_usd != null ? `$${pulse.xnt_price_usd.toFixed(4)}`            : '—';
   const txs24h     = pulse?.indexed_txs_24h     ? pulse.indexed_txs_24h.toLocaleString()           : '—';
   const wallets24h = pulse?.active_wallets_24h  ? pulse.active_wallets_24h.toLocaleString()        : '—';
   const lag        = pulse?.indexer?.lag_slots  ? `${pulse.indexer.lag_slots.toLocaleString()} slots behind` : null;

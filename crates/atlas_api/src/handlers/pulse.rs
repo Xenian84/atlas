@@ -27,11 +27,30 @@ use serde_json::json;
 use sqlx::Row;
 use crate::{state::AppState, error::ApiError, negotiate::{negotiate, respond}};
 
+const XDEX_PRICE_URL: &str =
+    "https://api.xdex.xyz/api/token-price/price\
+     ?network=X1%20Mainnet\
+     &token_address=So11111111111111111111111111111111111111112";
+
+/// Fetch XNT/USD price from XDex. Returns None on any error.
+async fn fetch_xnt_price() -> Option<f64> {
+    let resp = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(3))
+        .build().ok()?
+        .get(XDEX_PRICE_URL)
+        .send().await.ok()?;
+    let body: serde_json::Value = resp.json().await.ok()?;
+    body["data"]["price"].as_f64()
+}
+
 pub async fn network_pulse(
     State(state): State<AppState>,
     headers:      HeaderMap,
 ) -> Result<Response, ApiError> {
     let pool = state.pool();
+
+    // ── XNT price (concurrent, fire-and-forget) ─────────────────────────────
+    let price_fut = fetch_xnt_price();
 
     // ── slot from indexer_state table ──────────────────────────────────────
     let slot_row = sqlx::query(
@@ -117,12 +136,16 @@ pub async fn network_pulse(
 
     let lag_slots = (network_slot - indexed_slot).max(0);
 
+    // ── await price (all DB work is done, so latency is hidden) ─────────────
+    let xnt_price_usd = price_fut.await;
+
     // ── assemble response ───────────────────────────────────────────────────
     let pulse = json!({
         "chain":               "x1",
         "slot":                current_slot,
         "block_time":          latest_bt,
         "tps_1m":              tps,
+        "xnt_price_usd":       xnt_price_usd,
         "active_wallets_24h":  wallets_24h,
         "indexed_txs_24h":     tx_24h,
         "indexer": {
@@ -154,6 +177,9 @@ fn render_pulse_toon(p: &serde_json::Value) -> String {
     out.push_str(&format!(" slot:               {}\n", p["slot"].as_i64().unwrap_or(0)));
     out.push_str(&format!(" block_time:         {}\n", p["block_time"].as_i64().unwrap_or(0)));
     out.push_str(&format!(" tps_1m:             {}\n", p["tps_1m"].as_i64().unwrap_or(0)));
+    if let Some(price) = p["xnt_price_usd"].as_f64() {
+        out.push_str(&format!(" xnt_price_usd:      {:.4}\n", price));
+    }
     out.push_str(&format!(" active_wallets_24h: {}\n", p["active_wallets_24h"].as_i64().unwrap_or(0)));
     out.push_str(&format!(" indexed_txs_24h:    {}\n", p["indexed_txs_24h"].as_i64().unwrap_or(0)));
     out.push('\n');
@@ -183,11 +209,9 @@ fn render_pulse_toon(p: &serde_json::Value) -> String {
 }
 
 /// GET /v1/network/tps — per-minute TPS over the last hour from indexed tx_store.
-/// Returns Atlas-native data (no validator RPC needed) for the TPS chart.
 pub async fn network_tps(
     State(state): State<AppState>,
 ) -> Result<axum::Json<serde_json::Value>, ApiError> {
-    use sqlx::Row;
     let pool = state.pool();
 
     let rows = sqlx::query(
