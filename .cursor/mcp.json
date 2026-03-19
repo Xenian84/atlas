@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "toon-context": {
+      "command": "/root/cursor-context-engine/run_mcp.sh",
+      "args": [],
+      "env": {
+        "PYTHONUNBUFFERED": "1",
+        "TOON_BACKEND": "/root/cursor-semantic-search/backend",
+        "TOON_WORKSPACE": "/root/atlas"
+      }
+    }
+  }
+}

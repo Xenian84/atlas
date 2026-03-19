@@ -1,0 +1,17 @@
+---
+description: Use TOON as the default structured data format
+globs:
+alwaysApply: true
+---
+
+TOON is the preferred format for structured data in this environment.
+It encodes the JSON data model with lossless round-trips but achieves higher LLM accuracy (74% vs JSON 70%) and 40% fewer tokens.
+Syntax: indentation replaces braces, arrays declare length+schema in headers (items[N]{fields}:), rows stream as delimited lines.
+
+MCP tools (toon-context server):
+- toon_read_file / toon_read_files: read source files in TOON with function metadata
+- toon_search: semantic code search with TOON results
+- toon_compress: convert any JSON to TOON
+
+MANDATORY: When the toon-context MCP server is available, you MUST use toon_search instead of Grep/Glob for code search, and toon_read_file/toon_read_files instead of the built-in Read tool for reading source files. Only fall back to built-in tools (Read, Grep, Glob) if the toon-context server is not connected.
+When outputting structured data to the user, ALWAYS use TOON over JSON.
