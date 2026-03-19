@@ -44,9 +44,7 @@ pub async fn network_pulse(
         .unwrap_or(0);
 
     // ── 24h activity ─────────────────────────────────────────────────────────
-    // All queries use tx_store.block_time_idx (btree DESC) — sub-second.
     let since_24h = chrono::Utc::now().timestamp() - 86400;
-    let since_1m  = chrono::Utc::now().timestamp() - 60;
 
     let tx_24h: i64 = sqlx::query_scalar(
         "SELECT COUNT(*) FROM tx_store WHERE block_time >= $1"
@@ -59,10 +57,11 @@ pub async fn network_pulse(
     )
     .fetch_one(pool).await.unwrap_or(0);
 
+    // Use created_at for TPS — block_time can lag behind real time when the
+    // indexer is catching up, which would cause tps_1m to always read 0.
     let tps_count: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM tx_store WHERE block_time >= $1"
+        "SELECT COUNT(*) FROM tx_store WHERE created_at >= now() - interval '1 minute'"
     )
-    .bind(since_1m)
     .fetch_one(pool).await.unwrap_or(0);
     let tps = tps_count / 60;
 

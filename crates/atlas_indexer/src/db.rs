@@ -1,11 +1,27 @@
 use anyhow::Result;
-use sqlx::PgPool;
+use sqlx::{PgPool, Postgres, Transaction};
 use atlas_types::facts::TxFactsV1;
 
-/// UPSERT account balances from sol_deltas into the accounts table.
-/// Uses post_lamports from each NativeDelta — only updates if slot is newer.
-/// This gives us real-time XNT balances for every address that ever transacted.
-pub async fn upsert_account_balances(pool: &PgPool, facts: &TxFactsV1) -> Result<()> {
+// ── Transaction-wrapped batch write ──────────────────────────────────────────
+// All per-tx upserts run inside a single PostgreSQL transaction so there is
+// only ONE commit round-trip instead of 5-6.  This is the primary throughput
+// improvement: on a local DB each commit is ~10-50 ms of WAL fsync overhead.
+
+pub async fn persist_all(pool: &PgPool, facts: &TxFactsV1) -> Result<()> {
+    let mut txn = pool.begin().await?;
+    upsert_tx_txn(&mut txn, facts).await?;
+    upsert_address_index_batch_txn(&mut txn, facts).await?;
+    upsert_token_balance_index_txn(&mut txn, facts).await?;
+    upsert_program_activity_txn(&mut txn, facts).await?;
+    upsert_account_balances_txn(&mut txn, facts).await?;
+    upsert_token_account_index_txn(&mut txn, facts).await?;
+    txn.commit().await?;
+    Ok(())
+}
+
+// ── _txn variants (accept an open transaction) ────────────────────────────
+
+pub async fn upsert_account_balances_txn(txn: &mut Transaction<'_, Postgres>, facts: &TxFactsV1) -> Result<()> {
     if facts.sol_deltas.is_empty() { return Ok(()); }
 
     let addresses:     Vec<String> = facts.sol_deltas.iter().map(|d| d.owner.clone()).collect();
@@ -25,43 +41,47 @@ pub async fn upsert_account_balances(pool: &PgPool, facts: &TxFactsV1) -> Result
     .bind(&addresses as &[String])
     .bind(&post_lamports as &[i64])
     .bind(slot)
-    .execute(pool)
+    .execute(&mut **txn)
     .await?;
 
     Ok(())
 }
 
-/// UPSERT token account ownership from token_deltas into token_account_index.
-/// Tracks which mint each owner holds — used for token balance queries.
-pub async fn upsert_token_account_index(pool: &PgPool, facts: &TxFactsV1) -> Result<()> {
-    for delta in &facts.token_deltas {
-        sqlx::query(
-            r#"INSERT INTO token_account_index (token_account, owner, mint, amount, slot_updated, updated_at)
-               VALUES ($1, $2, $3, 0, $4, now())
-               ON CONFLICT (token_account) DO UPDATE SET
-                   owner        = EXCLUDED.owner,
-                   mint         = EXCLUDED.mint,
-                   slot_updated = EXCLUDED.slot_updated,
-                   updated_at   = EXCLUDED.updated_at
-               WHERE token_account_index.slot_updated < EXCLUDED.slot_updated"#
-        )
-        .bind(&delta.account)
-        .bind(&delta.owner)
-        .bind(&delta.mint)
-        .bind(facts.slot as i64)
-        .execute(pool)
-        .await?;
-    }
+pub async fn upsert_token_account_index_txn(txn: &mut Transaction<'_, Postgres>, facts: &TxFactsV1) -> Result<()> {
+    if facts.token_deltas.is_empty() { return Ok(()); }
+
+    let accounts: Vec<&str> = facts.token_deltas.iter().map(|d| d.account.as_str()).collect();
+    let owners:   Vec<&str> = facts.token_deltas.iter().map(|d| d.owner.as_str()).collect();
+    let mints:    Vec<&str> = facts.token_deltas.iter().map(|d| d.mint.as_str()).collect();
+    let slot = facts.slot as i64;
+
+    sqlx::query(
+        r#"INSERT INTO token_account_index (token_account, owner, mint, amount, slot_updated, updated_at)
+           SELECT ta, ow, mi, 0, $4, now()
+           FROM UNNEST($1::text[], $2::text[], $3::text[]) AS t(ta, ow, mi)
+           ON CONFLICT (token_account) DO UPDATE SET
+               owner        = EXCLUDED.owner,
+               mint         = EXCLUDED.mint,
+               slot_updated = EXCLUDED.slot_updated,
+               updated_at   = EXCLUDED.updated_at
+           WHERE token_account_index.slot_updated < EXCLUDED.slot_updated"#
+    )
+    .bind(&accounts as &[&str])
+    .bind(&owners   as &[&str])
+    .bind(&mints    as &[&str])
+    .bind(slot)
+    .execute(&mut **txn)
+    .await?;
+
     Ok(())
 }
 
-/// UPSERT tx_store. On conflict, update only if new commitment is stronger.
-pub async fn upsert_tx(pool: &PgPool, facts: &TxFactsV1) -> Result<()> {
-    let accounts_json  = serde_json::to_value(&facts.accounts)?;
-    let actions_json   = serde_json::to_value(&facts.actions)?;
-    let tok_deltas     = serde_json::to_value(&facts.token_deltas)?;
-    let sol_deltas_v   = serde_json::to_value(&facts.sol_deltas)?;
-    let status         = facts.status.as_smallint();
+pub async fn upsert_tx_txn(txn: &mut Transaction<'_, Postgres>, facts: &TxFactsV1) -> Result<()> {
+    let accounts_json   = serde_json::to_value(&facts.accounts)?;
+    let actions_json    = serde_json::to_value(&facts.actions)?;
+    let tok_deltas      = serde_json::to_value(&facts.token_deltas)?;
+    let sol_deltas_v    = serde_json::to_value(&facts.sol_deltas)?;
+    let status          = facts.status.as_smallint();
     let commitment_rank = facts.commitment.rank() as i32;
 
     sqlx::query(
@@ -108,27 +128,25 @@ pub async fn upsert_tx(pool: &PgPool, facts: &TxFactsV1) -> Result<()> {
     .bind(facts.raw_ref.as_deref())
     .bind(facts.commitment.as_str())
     .bind(commitment_rank)
-    .execute(pool)
+    .execute(&mut **txn)
     .await?;
 
     Ok(())
 }
 
-/// Batch UPSERT address_index using a single UNNEST query for O(1) round-trips.
-pub async fn upsert_address_index_batch(pool: &PgPool, facts: &TxFactsV1) -> Result<()> {
+pub async fn upsert_address_index_batch_txn(txn: &mut Transaction<'_, Postgres>, facts: &TxFactsV1) -> Result<()> {
     let addresses = facts.all_addresses();
     if addresses.is_empty() { return Ok(()); }
 
     let action_types = facts.action_types();
-    let slot      = facts.slot as i64;
-    let pos       = facts.pos  as i32;
-    let sig       = &facts.sig;
+    let slot       = facts.slot as i64;
+    let pos        = facts.pos  as i32;
+    let sig        = &facts.sig;
     let block_time = facts.block_time;
-    let status    = facts.status.as_smallint();
-    let tags      = &facts.tags as &[String];
-    let atypes    = &action_types as &[String];
+    let status     = facts.status.as_smallint();
+    let tags       = &facts.tags as &[String];
+    let atypes     = &action_types as &[String];
 
-    // One INSERT per tx — UNNEST expands the address list; all other columns are constant.
     sqlx::query(
         r#"INSERT INTO address_index (address, slot, pos, sig, block_time, status, tags, action_types)
            SELECT addr, $2, $3, $4, $5, $6, $7, $8
@@ -143,50 +161,104 @@ pub async fn upsert_address_index_batch(pool: &PgPool, facts: &TxFactsV1) -> Res
     .bind(status)
     .bind(tags)
     .bind(atypes)
-    .execute(pool)
+    .execute(&mut **txn)
     .await?;
 
     Ok(())
 }
 
-/// UPSERT token_balance_index rows.
-pub async fn upsert_token_balance_index(pool: &PgPool, facts: &TxFactsV1) -> Result<()> {
-    for delta in &facts.token_deltas {
-        let delta_val: sqlx::types::Decimal = delta.delta.parse().unwrap_or_default();
-        sqlx::query(
-            r#"INSERT INTO token_balance_index (owner, slot, pos, sig, mint, delta, direction)
-               VALUES ($1, $2, $3, $4, $5, $6, $7)
-               ON CONFLICT DO NOTHING"#
-        )
-        .bind(&delta.owner)
-        .bind(facts.slot as i64)
-        .bind(facts.pos as i32)
-        .bind(&facts.sig)
-        .bind(&delta.mint)
-        .bind(delta_val)
-        .bind(delta.direction.as_smallint())
-        .execute(pool)
-        .await?;
-    }
+pub async fn upsert_token_balance_index_txn(txn: &mut Transaction<'_, Postgres>, facts: &TxFactsV1) -> Result<()> {
+    if facts.token_deltas.is_empty() { return Ok(()); }
+
+    let owners:     Vec<&str>                 = facts.token_deltas.iter().map(|d| d.owner.as_str()).collect();
+    let mints:      Vec<&str>                 = facts.token_deltas.iter().map(|d| d.mint.as_str()).collect();
+    let deltas:     Vec<sqlx::types::Decimal> = facts.token_deltas.iter()
+        .map(|d| d.delta.parse().unwrap_or_default())
+        .collect();
+    let directions: Vec<i16>                  = facts.token_deltas.iter()
+        .map(|d| d.direction.as_smallint())
+        .collect();
+
+    sqlx::query(
+        r#"INSERT INTO token_balance_index (owner, slot, pos, sig, mint, delta, direction)
+           SELECT ow, $3, $4, $5, mi, de, di
+           FROM UNNEST($1::text[], $2::text[], $6::numeric[], $7::smallint[]) AS t(ow, mi, de, di)
+           ON CONFLICT DO NOTHING"#
+    )
+    .bind(&owners     as &[&str])
+    .bind(&mints      as &[&str])
+    .bind(facts.slot as i64)
+    .bind(facts.pos  as i32)
+    .bind(&facts.sig)
+    .bind(&deltas     as &[sqlx::types::Decimal])
+    .bind(&directions as &[i16])
+    .execute(&mut **txn)
+    .await?;
+
     Ok(())
 }
 
-/// UPSERT program_activity_index rows.
+pub async fn upsert_program_activity_txn(txn: &mut Transaction<'_, Postgres>, facts: &TxFactsV1) -> Result<()> {
+    if facts.programs.is_empty() { return Ok(()); }
+
+    sqlx::query(
+        r#"INSERT INTO program_activity_index (program_id, slot, pos, sig, block_time, tags)
+           SELECT prog, $2, $3, $4, $5, $6
+           FROM UNNEST($1::text[]) AS prog
+           ON CONFLICT DO NOTHING"#
+    )
+    .bind(&facts.programs as &[String])
+    .bind(facts.slot as i64)
+    .bind(facts.pos  as i32)
+    .bind(&facts.sig)
+    .bind(facts.block_time)
+    .bind(&facts.tags as &[String])
+    .execute(&mut **txn)
+    .await?;
+
+    Ok(())
+}
+
+// ── Pool-based variants (kept for backfill and other callers) ─────────────
+
+pub async fn upsert_account_balances(pool: &PgPool, facts: &TxFactsV1) -> Result<()> {
+    let mut txn = pool.begin().await?;
+    upsert_account_balances_txn(&mut txn, facts).await?;
+    txn.commit().await?;
+    Ok(())
+}
+
+pub async fn upsert_token_account_index(pool: &PgPool, facts: &TxFactsV1) -> Result<()> {
+    let mut txn = pool.begin().await?;
+    upsert_token_account_index_txn(&mut txn, facts).await?;
+    txn.commit().await?;
+    Ok(())
+}
+
+pub async fn upsert_tx(pool: &PgPool, facts: &TxFactsV1) -> Result<()> {
+    let mut txn = pool.begin().await?;
+    upsert_tx_txn(&mut txn, facts).await?;
+    txn.commit().await?;
+    Ok(())
+}
+
+pub async fn upsert_address_index_batch(pool: &PgPool, facts: &TxFactsV1) -> Result<()> {
+    let mut txn = pool.begin().await?;
+    upsert_address_index_batch_txn(&mut txn, facts).await?;
+    txn.commit().await?;
+    Ok(())
+}
+
+pub async fn upsert_token_balance_index(pool: &PgPool, facts: &TxFactsV1) -> Result<()> {
+    let mut txn = pool.begin().await?;
+    upsert_token_balance_index_txn(&mut txn, facts).await?;
+    txn.commit().await?;
+    Ok(())
+}
+
 pub async fn upsert_program_activity(pool: &PgPool, facts: &TxFactsV1) -> Result<()> {
-    for program_id in &facts.programs {
-        sqlx::query(
-            r#"INSERT INTO program_activity_index (program_id, slot, pos, sig, block_time, tags)
-               VALUES ($1, $2, $3, $4, $5, $6)
-               ON CONFLICT DO NOTHING"#
-        )
-        .bind(program_id)
-        .bind(facts.slot as i64)
-        .bind(facts.pos as i32)
-        .bind(&facts.sig)
-        .bind(facts.block_time)
-        .bind(&facts.tags as &[String])
-        .execute(pool)
-        .await?;
-    }
+    let mut txn = pool.begin().await?;
+    upsert_program_activity_txn(&mut txn, facts).await?;
+    txn.commit().await?;
     Ok(())
 }

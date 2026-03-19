@@ -288,51 +288,41 @@ async fn persist_tx(
     rpc_url:      &str,
     redis_stream: &str,
 ) -> Result<()> {
-    db::upsert_tx(pool, facts).await?;
-    db::upsert_address_index_batch(pool, facts).await?;
-    db::upsert_token_balance_index(pool, facts).await?;
-    db::upsert_program_activity(pool, facts).await?;
+    // ── Core writes: single DB transaction = one commit round-trip ───────────
+    db::persist_all(pool, facts).await?;
 
-    // Account state — update XNT balance for all accounts touched by this tx.
-    // Non-fatal: missing an update just means a slightly stale balance.
-    if let Err(e) = db::upsert_account_balances(pool, facts).await {
-        warn!("account balance upsert failed: {}", e);
-    }
-
-    // Token account ownership — track which mint each wallet holds.
-    if let Err(e) = db::upsert_token_account_index(pool, facts).await {
-        warn!("token_account_index upsert failed: {}", e);
-    }
-
-    // DAS indexer + token metadata — non-fatal, only run on confirmed path
-    if redis_stream == "atlas:newtx" {
-        if let Err(e) = das::index_assets(pool, http, rpc_url, facts).await {
-            warn!("DAS indexer error: {}", e);
-        }
-        // Ensure token metadata is cached for every mint touched by this tx
-        let mints: Vec<String> = facts.token_deltas.iter()
-            .map(|d| d.mint.clone())
-            .collect::<std::collections::HashSet<_>>()
-            .into_iter()
-            .collect();
-        if !mints.is_empty() {
-            if let Err(e) = crate::token_meta::ensure_token_metadata(pool, http, rpc_url, &mints).await {
-                warn!("token_meta resolver error: {}", e);
+    // ── DAS + token-meta: fire-and-forget background tasks ───────────────────
+    // These make external RPC calls and are non-critical for indexing speed.
+    // Running them in the foreground was the primary cause of stream lag.
+    if redis_stream == "atlas:newtx" && (!facts.token_deltas.is_empty() || !facts.actions.is_empty()) {
+        let pool2    = pool.clone();
+        let http2    = http.clone();
+        let rpc2     = rpc_url.to_string();
+        let facts2   = facts.clone();
+        tokio::spawn(async move {
+            if let Err(e) = das::index_assets(&pool2, &http2, &rpc2, &facts2).await {
+                warn!("DAS indexer error: {}", e);
             }
-            // Refresh supply for mints that had significant delta (mint/burn)
-            let mint_burn_mints: Vec<String> = facts.token_deltas.iter()
-                .filter(|d| {
-                    let delta: i128 = d.delta.parse().unwrap_or(0);
-                    delta.abs() > 1_000_000 // significant change = likely mint or burn
-                })
+            let mints: Vec<String> = facts2.token_deltas.iter()
                 .map(|d| d.mint.clone())
                 .collect::<std::collections::HashSet<_>>()
                 .into_iter()
                 .collect();
-            if !mint_burn_mints.is_empty() {
-                crate::token_meta::refresh_token_supply(pool, http, rpc_url, &mint_burn_mints).await;
+            if !mints.is_empty() {
+                if let Err(e) = crate::token_meta::ensure_token_metadata(&pool2, &http2, &rpc2, &mints).await {
+                    warn!("token_meta resolver error: {}", e);
+                }
+                let mint_burn_mints: Vec<String> = facts2.token_deltas.iter()
+                    .filter(|d| d.delta.parse::<i128>().unwrap_or(0).abs() > 1_000_000)
+                    .map(|d| d.mint.clone())
+                    .collect::<std::collections::HashSet<_>>()
+                    .into_iter()
+                    .collect();
+                if !mint_burn_mints.is_empty() {
+                    crate::token_meta::refresh_token_supply(&pool2, &http2, &rpc2, &mint_burn_mints).await;
+                }
             }
-        }
+        });
     }
 
     let event = serde_json::json!({

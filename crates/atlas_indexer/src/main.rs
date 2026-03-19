@@ -84,8 +84,13 @@ async fn main() -> Result<()> {
                 .unwrap_or_else(|_| "atlas:shreds".to_string());
             let tx_broadcast_key = std::env::var("REDIS_NEWTX_STREAM")
                 .unwrap_or_else(|_| "atlas:newtx".to_string());
+            // IMPORTANT: shred consumer must use its OWN Redis client (separate TCP connection).
+            // redis::ConnectionManager::clone() shares one underlying TCP connection, and the
+            // shred consumer's XREADGROUP BLOCK 1000 command holds that connection for up to 1s,
+            // which would delay every XADD the main stream tries to send.
+            let shred_redis_client = redis::Client::open(cfg.redis_url.clone())?;
             let shred_pool  = pool.clone();
-            let shred_redis = redis_mgr.clone();
+            let shred_redis = shred_redis_client.get_connection_manager().await?;
             tokio::spawn(async move {
                 loop {
                     if let Err(e) = shred_consumer::run_shred_consumer(
