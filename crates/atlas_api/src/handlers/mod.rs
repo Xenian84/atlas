@@ -30,8 +30,9 @@ pub fn build_router(state: AppState) -> Router {
         .route("/mcp",          post(mcp::mcp_handler))
         .route("/mcp/sse",      get(mcp::mcp_sse_handler))
         .route("/v1/stream",    get(stream::ws_stream_handler))
-        .route("/v1/network/pulse", get(pulse::network_pulse))
-        .route("/v1/network/tps",   get(pulse::network_tps))
+        .route("/v1/network/pulse",      get(pulse::network_pulse))
+        .route("/v1/network/tps",        get(pulse::network_tps))
+        .route("/v1/network/validators", get(pulse::network_validators))
         // OpenAPI docs — public, no auth needed
         .route("/docs",         get(docs::swagger_ui))
         .route("/openapi.json", get(docs::openapi_spec));

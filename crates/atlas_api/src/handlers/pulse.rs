@@ -239,3 +239,93 @@ pub async fn network_tps(
 
     Ok(axum::Json(json!({ "samples": samples })))
 }
+
+/// GET /v1/network/validators?limit=N
+/// Fetches vote accounts from the validator RPC, returns top N by stake.
+/// Much lighter than a raw getVoteAccounts RPC call (strips epochCredits bulk).
+pub async fn network_validators(
+    State(state): State<AppState>,
+    axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
+) -> Result<axum::Json<serde_json::Value>, ApiError> {
+    let limit: usize = params.get("limit")
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(150)
+        .min(500);
+
+    let rpc_url = state.cfg().validator_rpc_url.clone();
+
+    let body = serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "getVoteAccounts",
+        "params": [{ "keepUnstakedDelinquents": false }]
+    });
+
+    let resp = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| ApiError::Internal(anyhow::anyhow!(e)))?
+        .post(&rpc_url)
+        .json(&body)
+        .send().await
+        .map_err(|e| ApiError::Internal(anyhow::anyhow!(e)))?;
+
+    let rpc_resp: serde_json::Value = resp.json().await
+        .map_err(|e| ApiError::Internal(anyhow::anyhow!(e)))?;
+
+    let empty = vec![];
+    let current   = rpc_resp["result"]["current"].as_array().unwrap_or(&empty);
+    let delinquent = rpc_resp["result"]["delinquent"].as_array().unwrap_or(&empty);
+
+    let total_stake: u64 = current.iter()
+        .filter_map(|v| v["activatedStake"].as_u64())
+        .sum();
+
+    // Sort by stake desc, take top N, strip bulky epochCredits
+    let mut validators: Vec<&serde_json::Value> = current.iter().collect();
+    validators.sort_by(|a, b| {
+        let sa = a["activatedStake"].as_u64().unwrap_or(0);
+        let sb = b["activatedStake"].as_u64().unwrap_or(0);
+        sb.cmp(&sa)
+    });
+
+    let result: Vec<serde_json::Value> = validators.iter()
+        .take(limit)
+        .map(|v| {
+            let stake = v["activatedStake"].as_u64().unwrap_or(0);
+            // Compute APY from epochCredits (last 4 epochs)
+            let credits = v["epochCredits"].as_array().cloned().unwrap_or_default();
+            let recent: Vec<_> = credits.iter().rev().take(4).collect();
+            let earned: i64 = recent.iter().filter_map(|e| {
+                let cur  = e[1].as_i64()?;
+                let prev = e[2].as_i64()?;
+                Some(cur - prev)
+            }).sum();
+            let possible = recent.len() as i64 * 432_000;
+            let commission = v["commission"].as_i64().unwrap_or(10);
+            let apy = if possible > 0 {
+                let rate = earned as f64 / possible as f64;
+                (rate * 6.5 * (1.0 - commission as f64 / 100.0) * 10.0).round() / 10.0
+            } else { 0.0 };
+
+            json!({
+                "votePubkey":     v["votePubkey"],
+                "nodePubkey":     v["nodePubkey"],
+                "activatedStake": stake,
+                "stakeXnt":       stake / 1_000_000_000,
+                "weight":         if total_stake > 0 { stake as f64 / total_stake as f64 } else { 0.0 },
+                "commission":     commission,
+                "lastVote":       v["lastVote"],
+                "apy":            apy,
+                "delinquent":     false,
+            })
+        })
+        .collect();
+
+    Ok(axum::Json(json!({
+        "validators":    result,
+        "total_active":  current.len(),
+        "total_delinquent": delinquent.len(),
+        "total_stake_xnt": total_stake / 1_000_000_000,
+    })))
+}

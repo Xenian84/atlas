@@ -38,7 +38,10 @@ export default function TpsChart() {
         clientFetch<TpsResponse>('/v1/network/tps'),
         getNetworkPulse().catch(() => null),
       ]);
-      setData(hist.samples);
+      // Trim leading zero-TPS samples (from indexer backfill/startup period)
+      const firstNonZero = hist.samples.findIndex(s => s.tps > 0);
+      const trimmed = firstNonZero > 0 ? hist.samples.slice(firstNonZero) : hist.samples;
+      setData(trimmed);
       if (pulse?.tps_1m) setLiveTps(Math.round(pulse.tps_1m));
       else if (hist.samples.length) setLiveTps(hist.samples[hist.samples.length - 1].tps);
     } catch { /* silent */ }
