@@ -10,7 +10,6 @@ const TpsChart           = dynamic(() => import('@/components/stats/TpsChart'), 
 const ClientDistribution = dynamic(() => import('@/components/stats/ClientDistribution'), { ssr: false });
 const RecentBlocks       = dynamic(() => import('@/components/stats/RecentBlocks'),       { ssr: false });
 
-const SOL_LAMPORTS = 1_000_000_000;
 
 export default function StatsPage() {
   const [pulse, setPulse]           = useState<NetworkPulse | null>(null);

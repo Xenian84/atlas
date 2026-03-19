@@ -21,10 +21,10 @@ function formatTs(ts: number | null) {
   catch { return ''; }
 }
 
-function formatSol(lamports: number) {
-  const sol = lamports / 1e9;
-  if (sol >= 1000) return `${(sol / 1000).toFixed(1)}K ◎`;
-  if (sol >= 0.001) return `${sol.toFixed(3)} ◎`;
+function formatXnt(lamports: number) {
+  const xnt = lamports / 1e9;
+  if (xnt >= 1000) return `${(xnt / 1000).toFixed(1)}K XNT`;
+  if (xnt >= 0.001) return `${xnt.toFixed(3)} XNT`;
   return `${lamports.toLocaleString()} L`;
 }
 
@@ -56,12 +56,12 @@ export default function TraceSidebar({ data, filters, onFilterChange, onAddressC
         <SummaryRow label="Counterparties" value={String(data.cps)} />
         <SummaryRow
           label="Total Outflow"
-          value={formatSol(data.total_outflow_lamports)}
+          value={formatXnt(data.total_outflow_lamports)}
           color="#cba6f7"
         />
         <SummaryRow
           label="Total Inflow"
-          value={formatSol(data.total_inflow_lamports)}
+          value={formatXnt(data.total_inflow_lamports)}
           color="#94e2d5"
         />
       </div>
@@ -99,7 +99,7 @@ export default function TraceSidebar({ data, filters, onFilterChange, onAddressC
         </FieldGroup>
 
         <div style={{ display: 'flex', gap: 8 }}>
-          <FieldGroup label="MIN ◎">
+          <FieldGroup label="MIN XNT">
             <input
               type="number"
               placeholder="0"
@@ -108,7 +108,7 @@ export default function TraceSidebar({ data, filters, onFilterChange, onAddressC
               style={{ ...inputStyle, width: '100%' }}
             />
           </FieldGroup>
-          <FieldGroup label="MAX ◎">
+          <FieldGroup label="MAX XNT">
             <input
               type="number"
               placeholder="∞"
@@ -126,7 +126,7 @@ export default function TraceSidebar({ data, filters, onFilterChange, onAddressC
             onChange={e => onFilterChange({ hide_dust: e.target.checked })}
             style={{ accentColor: '#00e5ff' }}
           />
-          <span style={{ color: '#a6adc8', fontSize: 10 }}>Hide $0 dust (&lt; 0.001 ◎)</span>
+          <span style={{ color: '#a6adc8', fontSize: 10 }}>Hide $0 dust (&lt; 0.001 XNT)</span>
         </label>
       </div>
 
@@ -231,7 +231,7 @@ function TransferRow({
       {row.total_lamports > 0 && (
         <>
           <div style={{ color: '#6c7086', fontSize: 9, gridColumn: '1/-1', marginTop: 2 }}>
-            {formatSol(row.total_lamports)}
+            {formatXnt(row.total_lamports)}
           </div>
         </>
       )}

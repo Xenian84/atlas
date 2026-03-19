@@ -45,10 +45,10 @@ function edgeStyle(dir: string) {
 
 function formatLamports(l: number) {
   if (l === 0) return '';
-  const sol = l / 1e9;
-  if (sol >= 1000) return `${(sol / 1000).toFixed(1)}K◎`;
-  if (sol >= 1)    return `${sol.toFixed(2)}◎`;
-  return `${Math.round(l / 1000)}K◁`;
+  const xnt = l / 1e9;
+  if (xnt >= 1000) return `${(xnt / 1000).toFixed(1)}K XNT`;
+  if (xnt >= 1)    return `${xnt.toFixed(2)} XNT`;
+  return `${Math.round(l / 1000)}K L`;
 }
 
 /** Arrange nodes in a radial layout around the root */

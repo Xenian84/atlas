@@ -96,7 +96,7 @@ function WalletNode({ data, selected }: NodeProps<any>) {
 
         {/* Stats grid */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px 12px' }}>
-          <StatRow label="SOL" value={d.sol_balance > 0 ? d.sol_balance.toFixed(3) : '—'} accent />
+          <StatRow label="XNT" value={d.sol_balance > 0 ? d.sol_balance.toFixed(3) : '—'} accent />
           <StatRow label="Tokens" value={d.token_count > 0 ? String(d.token_count) : '—'} />
           <StatRow label="Txns" value={String(d.tx_count)} />
           <StatRow label="Moves" value={String(d.move_count)} />

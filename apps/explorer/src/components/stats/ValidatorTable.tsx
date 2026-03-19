@@ -128,7 +128,7 @@ export default function ValidatorTable() {
                   <td style={{ color: apy > 0 ? 'hsl(var(--accent-green))' : 'hsl(var(--foreground-muted))', fontWeight: 600 }}>
                     {apy > 0 ? `${apy}%` : '—'}
                   </td>
-                  <td>{Number(stake).toLocaleString()} SOL</td>
+                  <td>{Number(stake).toLocaleString()} XNT</td>
                   <td style={{ minWidth: 120 }}><StakeBar weight={weight} /></td>
                   <td style={{ color: v.commission > 10 ? 'hsl(var(--accent-amber))' : 'hsl(var(--foreground-secondary))' }}>
                     {v.commission}%

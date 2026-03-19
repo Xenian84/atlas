@@ -156,5 +156,3 @@ export const abbrev = (s: string, n = 8) =>
   s.length > n * 2 + 2 ? `${s.slice(0, n)}…${s.slice(-4)}` : s
 
 export const lamportsToXnt = (l: number) => (l / 1e9).toFixed(6)
-/** @deprecated use lamportsToXnt */
-export const lamportsToSol = lamportsToXnt
