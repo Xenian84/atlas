@@ -26,8 +26,9 @@ function formatTs(ts: number | null) {
   catch { return 'unknown'; }
 }
 
-function WalletNode({ data, selected }: NodeProps<{ data: WalletNodeData }>) {
-  const d = (data as unknown as WalletNodeData);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function WalletNode({ data, selected }: NodeProps<any>) {
+  const d = data as WalletNodeData;
   const isRoot = d.isRoot;
 
   return (

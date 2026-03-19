@@ -20,7 +20,8 @@ import '@xyflow/react/dist/style.css';
 import WalletNode from './WalletNode';
 import type { TraceData } from './types';
 
-const NODE_TYPES = { wallet: WalletNode };
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const NODE_TYPES: Record<string, any> = { wallet: WalletNode };
 
 const EDGE_STYLE_OUT = {
   stroke: 'rgba(203, 166, 247, 0.55)',

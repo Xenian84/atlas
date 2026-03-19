@@ -270,13 +270,6 @@ function DateInput({ value, onChange }: { value: string; onChange: (v: string) =
   );
 }
 
-function formatSol(lamports: number) {
-  const sol = lamports / 1e9;
-  if (sol >= 1000) return `${(sol / 1000).toFixed(1)}K ◎`;
-  if (sol >= 0.001) return `${sol.toFixed(3)} ◎`;
-  return `${lamports.toLocaleString()} L`;
-}
-
 const inputStyle: React.CSSProperties = {
   width: '100%',
   background: 'rgba(255,255,255,0.04)',

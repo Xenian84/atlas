@@ -12,9 +12,9 @@ const TraceGraph = dynamic(() => import('@/components/trace/TraceGraph'), {
   loading: () => (
     <div style={{
       flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontFamily: 'monospace', color: '#45475a', fontSize: 13,
+      fontFamily: 'var(--font-mono)', color: 'hsl(var(--foreground-tertiary))', fontSize: 12,
     }}>
-      <Spinner />
+      Loading graph…
     </div>
   ),
 });
@@ -104,9 +104,9 @@ export default function TracePage() {
         display: 'flex',
         flexDirection: 'column',
         height: '100vh',
-        background: '#050508',
-        color: '#cdd6f4',
-        fontFamily: '"Courier New", monospace',
+        background: 'hsl(var(--background))',
+        color: 'hsl(var(--foreground))',
+        fontFamily: 'var(--font-mono)',
         overflow: 'hidden',
       }}
     >
@@ -118,23 +118,24 @@ export default function TracePage() {
           gap: 0,
           padding: '0 20px',
           height: 44,
-          borderBottom: '1px solid rgba(255,255,255,0.07)',
+          borderBottom: '1px solid hsl(var(--border))',
           flexShrink: 0,
-          background: 'rgba(5,5,10,0.98)',
+          background: 'hsla(var(--background),.98)',
         }}
       >
         {/* Logo */}
-        <span
+        <a href="/"
           style={{
-            color: '#00e5ff',
+            color: 'hsl(var(--primary))',
             fontWeight: 900,
             fontSize: 13,
             letterSpacing: '0.18em',
             marginRight: 20,
+            textDecoration: 'none',
           }}
         >
-          ATLAS
-        </span>
+          ◈ ATLAS
+        </a>
 
         {/* Breadcrumb */}
         <BreadcrumbItem
@@ -159,12 +160,12 @@ export default function TracePage() {
         {/* Address chip */}
         <span
           style={{
-            background: 'rgba(0,229,255,0.08)',
-            border: '1px solid rgba(0,229,255,0.25)',
-            borderRadius: 4,
+            background: 'hsla(var(--primary),.08)',
+            border: '1px solid hsla(var(--primary),.25)',
             padding: '3px 10px',
-            color: '#00e5ff',
-            fontSize: 11,
+            color: 'hsl(var(--primary))',
+            fontFamily: 'var(--font-mono)',
+            fontSize: 10,
             letterSpacing: '0.04em',
             marginLeft: 12,
           }}
@@ -190,11 +191,11 @@ export default function TracePage() {
             <div style={{
               position: 'absolute', inset: 0, zIndex: 10,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: 'rgba(5,5,10,0.8)', flexDirection: 'column', gap: 12,
+              background: 'hsla(var(--background),.85)', flexDirection: 'column', gap: 12,
             }}>
               <Spinner />
-              <span style={{ color: '#45475a', fontSize: 12 }}>
-                Tracing counterparties…
+              <span style={{ fontFamily: 'var(--font-mono)', color: 'hsl(var(--foreground-tertiary))', fontSize: 11, letterSpacing: '.08em' }}>
+                TRACING COUNTERPARTIES…
               </span>
             </div>
           )}
@@ -205,7 +206,7 @@ export default function TracePage() {
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               flexDirection: 'column', gap: 12,
             }}>
-              <span style={{ color: '#f38ba8', fontSize: 13 }}>⚠ {error}</span>
+              <span style={{ fontFamily: 'var(--font-mono)', color: 'hsl(var(--accent-red))', fontSize: 11, letterSpacing: '.06em' }}>⚠ {error}</span>
               <button onClick={() => loadTrace(address, filters)} style={headerBtnStyle}>
                 Retry
               </button>
@@ -226,25 +227,24 @@ export default function TracePage() {
                 position: 'absolute',
                 top: 16,
                 right: 16,
-                background: 'rgba(10,15,20,0.9)',
-                border: '1px solid rgba(255,255,255,0.1)',
-                borderRadius: 8,
+                background: 'hsl(var(--card))',
+                border: '1px solid hsl(var(--border-strong))',
                 padding: '10px 14px',
-                fontFamily: 'monospace',
+                fontFamily: 'var(--font-mono)',
                 fontSize: 11,
                 pointerEvents: 'none',
               }}
             >
-              <div style={{ color: '#00e5ff', fontWeight: 700, marginBottom: 6, fontSize: 12 }}>
-                Flows of {shorten(address)}
+              <div style={{ color: 'hsl(var(--primary))', fontWeight: 700, marginBottom: 6, fontSize: 11, letterSpacing: '.08em' }}>
+                FLOWS OF {shorten(address)}
               </div>
-              <div style={{ color: '#a6adc8' }}>
-                {data.total_transfers} Transfers · {data.cps} cps
+              <div style={{ color: 'hsl(var(--foreground-secondary))', fontSize: 10 }}>
+                {data.total_transfers} transfers · {data.cps} cps
               </div>
               {selected && (
-                <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.07)' }}>
-                  <span style={{ color: '#6c7086' }}>Selected: </span>
-                  <span style={{ color: '#cdd6f4' }}>{shorten(selected)}</span>
+                <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid hsl(var(--border))' }}>
+                  <span style={{ color: 'hsl(var(--foreground-muted))' }}>Selected: </span>
+                  <span style={{ color: 'hsl(var(--foreground))' }}>{shorten(selected)}</span>
                 </div>
               )}
             </div>
@@ -252,20 +252,13 @@ export default function TracePage() {
 
           {/* Hint */}
           {data && !loading && (
-            <div
-              style={{
-                position: 'absolute',
-                bottom: 52,
-                left: '50%',
-                transform: 'translateX(-50%)',
-                color: '#313244',
-                fontSize: 10,
-                fontFamily: 'monospace',
-                pointerEvents: 'none',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              Click node to select · Double-click to expand trace · Scroll to zoom
+            <div style={{
+              position: 'absolute', bottom: 52, left: '50%', transform: 'translateX(-50%)',
+              fontFamily: 'var(--font-mono)', fontSize: 9,
+              color: 'hsl(var(--foreground-muted))', letterSpacing: '.08em',
+              pointerEvents: 'none', whiteSpace: 'nowrap',
+            }}>
+              Click to select · Double-click to expand · Scroll to zoom
             </div>
           )}
         </div>
@@ -289,76 +282,56 @@ export default function TracePage() {
 
 function Spinner() {
   return (
-    <div
-      style={{
-        width: 28,
-        height: 28,
-        border: '2px solid rgba(0,229,255,0.15)',
-        borderTop: '2px solid #00e5ff',
-        borderRadius: '50%',
-        animation: 'spin 0.8s linear infinite',
-      }}
-    />
+    <div style={{
+      width: 28, height: 28,
+      border: '2px solid hsla(var(--primary),.15)',
+      borderTop: '2px solid hsl(var(--primary))',
+      borderRadius: '50%',
+      animation: 'spin 0.8s linear infinite',
+    }} />
   );
 }
 
-function BreadcrumbItem({
-  label, onClick, dimmed, active,
-}: {
-  label: string;
-  onClick?: () => void;
-  dimmed?: boolean;
-  active?: boolean;
-}) {
+function BreadcrumbItem({ label, onClick, dimmed, active }: { label: string; onClick?: () => void; dimmed?: boolean; active?: boolean }) {
   return (
-    <span
-      onClick={onClick}
-      style={{
-        fontSize: 10,
-        letterSpacing: '0.12em',
-        color: active ? '#cdd6f4' : dimmed ? '#45475a' : '#6c7086',
-        cursor: onClick ? 'pointer' : 'default',
-        fontWeight: active ? 600 : 400,
-        padding: '0 4px',
-        transition: 'color 0.15s',
-      }}
-    >
+    <span onClick={onClick} style={{
+      fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '.12em',
+      color: active ? 'hsl(var(--foreground))' : dimmed ? 'hsl(var(--foreground-muted))' : 'hsl(var(--foreground-tertiary))',
+      cursor: onClick ? 'pointer' : 'default',
+      fontWeight: active ? 600 : 400,
+      padding: '0 4px', transition: 'color .15s',
+    }}>
       {label}
     </span>
   );
 }
 
 function Chevron() {
-  return <span style={{ color: '#313244', fontSize: 10, padding: '0 2px' }}>//</span>;
+  return <span style={{ color: 'hsl(var(--border-strong))', fontSize: 10, padding: '0 2px' }}>//</span>;
 }
 
 function StatChip({ label, value }: { label: string; value: number }) {
   return (
-    <span
-      style={{
-        marginLeft: 8,
-        background: 'rgba(255,255,255,0.04)',
-        border: '1px solid rgba(255,255,255,0.08)',
-        borderRadius: 4,
-        padding: '2px 8px',
-        fontSize: 10,
-        color: '#6c7086',
-      }}
-    >
-      <span style={{ color: '#a6adc8' }}>{value}</span> {label}
+    <span style={{
+      marginLeft: 8,
+      background: 'hsl(var(--background-secondary))',
+      border: '1px solid hsl(var(--border))',
+      padding: '2px 8px',
+      fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '.08em',
+      color: 'hsl(var(--foreground-tertiary))',
+    }}>
+      <span style={{ color: 'hsl(var(--foreground-secondary))' }}>{value}</span> {label}
     </span>
   );
 }
 
 const headerBtnStyle: React.CSSProperties = {
   background: 'transparent',
-  border: '1px solid rgba(255,255,255,0.1)',
-  borderRadius: 4,
-  color: '#6c7086',
-  fontFamily: 'monospace',
-  fontSize: 10,
+  border: '1px solid hsl(var(--border-strong))',
+  color: 'hsl(var(--foreground-tertiary))',
+  fontFamily: 'var(--font-mono)',
+  fontSize: 9, letterSpacing: '.1em',
   padding: '4px 10px',
   cursor: 'pointer',
-  letterSpacing: '0.06em',
-  transition: 'color 0.15s, border-color 0.15s',
+  transition: 'color .15s, border-color .15s',
 };

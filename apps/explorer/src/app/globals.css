@@ -1,39 +1,202 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ── Design tokens ─────────────────────────────────────────── */
 :root {
-  --brand: #00D4FF;
+  /* Surface */
+  --background:           220 17%  4%;    /* #090c12 */
+  --background-secondary: 220 17%  6%;    /* #0d1018 */
+  --card:                 220 16%  7%;    /* #0f1319 */
+  --card-hover:           220 16%  9%;    /* #13181f */
+
+  /* Foreground */
+  --foreground:           220 14% 90%;    /* #dce2ef */
+  --foreground-secondary: 220  9% 60%;    /* #8a93a6 */
+  --foreground-tertiary:  220  9% 38%;    /* #535c6e */
+  --foreground-muted:     220  9% 28%;    /* #3d4455 */
+
+  /* Borders */
+  --border:               220 14% 12%;    /* #181e2a */
+  --border-strong:        220 14% 18%;    /* #222a38 */
+
+  /* Brand — cyan */
+  --primary:              186 100% 45%;   /* #00d6e3 */
+  --primary-dim:          186 100% 30%;   /* #008f99 */
+  --primary-glow:         186 100% 45%;
+
+  /* Accent colours */
+  --accent-green:         154  60% 52%;   /* #47c888 */
+  --accent-red:             0  72% 58%;   /* #e05b5b */
+  --accent-amber:          40  90% 58%;   /* #f5a940 */
+  --accent-purple:        270  60% 65%;   /* #9977d6 */
+  --accent-blue:          217  80% 62%;   /* #4d93e8 */
+
+  /* Typography */
+  --font-sans:    'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono:    'IBM Plex Mono', 'Courier New', monospace;
+
+  /* Geometry */
+  --radius:  0rem;          /* Orb signature: zero radius everywhere */
+  --border-radius: 0;
+
+  /* Shadows */
+  --shadow-card: 0 1px 3px rgba(0,0,0,.4), 0 0 0 1px hsl(var(--border));
 }
+
+/* ── Base reset ────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html { font-size: 14px; }
 
 body {
-  background-color: #0A0E1A;
-  color: #F9FAFB;
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.5;
 }
 
-.font-mono { font-family: 'JetBrains Mono', monospace; }
-.font-sans  { font-family: 'Inter', sans-serif; }
+/* ── Typography utilities ──────────────────────────────────── */
+.font-sans  { font-family: var(--font-sans); }
+.font-mono  { font-family: var(--font-mono); }
 
-/* Scrollbar */
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: #111827; }
-::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+/* ── Skeleton shimmer ──────────────────────────────────────── */
+@keyframes shimmer {
+  0%   { background-position: -600px 0; }
+  100% { background-position:  600px 0; }
+}
 
-/* Trace spinner */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--card))         25%,
+    hsl(var(--card-hover))   50%,
+    hsl(var(--card))         75%
+  );
+  background-size: 600px 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+/* ── Scrollbar ─────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border-strong));
+  border-radius: 0;
+}
+
+/* ── Form elements ─────────────────────────────────────────── */
+input, select, textarea {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+  border: 1px solid hsl(var(--border));
+  border-radius: 0;
+  outline: none;
+  transition: border-color 0.15s;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: hsl(var(--primary));
+}
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.5); cursor: pointer;
+}
+select option { background: hsl(var(--card)); color: hsl(var(--foreground)); }
+
+/* ── Stat label chip ───────────────────────────────────────── */
+.statlabel {
+  display: inline-block;
+  font-size: 9px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: hsl(var(--foreground-tertiary));
+  background: hsl(var(--background-secondary));
+  border: 1px solid hsl(var(--border));
+  padding: 2px 7px;
+}
+
+/* ── Divide grid ───────────────────────────────────────────── */
+.divide-grid {
+  border: 1px solid hsl(var(--border));
+}
+.divide-grid > * {
+  border-right: 1px solid hsl(var(--border));
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+/* ── Atlas card ────────────────────────────────────────────── */
+.atlas-card {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 0;
+}
+
+/* ── Live dot ──────────────────────────────────────────────── */
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; transform: scale(1);   }
+  50%       { opacity: .5; transform: scale(1.6); }
+}
+.live-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: hsl(var(--accent-green));
+  animation: live-pulse 1.8s ease-in-out infinite;
+  display: inline-block;
+}
+
+/* ── React Flow overrides ──────────────────────────────────── */
+.react-flow__background { background: hsl(var(--background)); }
+.react-flow__minimap    { border: 1px solid hsl(var(--border)); border-radius: 0; }
+.react-flow__controls {
+  border: 1px solid hsl(var(--border));
+  border-radius: 0;
+  box-shadow: none;
+}
+.react-flow__controls button {
+  background: hsl(var(--card)) !important;
+  border-bottom: 1px solid hsl(var(--border)) !important;
+  border-radius: 0 !important;
+  color: hsl(var(--foreground-secondary)) !important;
+}
+.react-flow__controls button:hover { background: hsl(var(--card-hover)) !important; }
+.react-flow__edge-path { filter: drop-shadow(0 0 3px hsla(var(--primary-glow),.25)); }
+
+/* ── Spinner ───────────────────────────────────────────────── */
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* React Flow overrides for dark theme */
-.react-flow__controls button {
-  background: rgba(10,15,20,0.9) !important;
-  border-color: rgba(255,255,255,0.1) !important;
-  color: #a6adc8 !important;
+/* ── Flash animation (new block) ───────────────────────────── */
+@keyframes flash-row {
+  0%   { background: hsla(var(--primary),.12); }
+  100% { background: transparent; }
 }
-.react-flow__controls button:hover { background: rgba(30,35,50,0.95) !important; }
-.react-flow__edge-path { filter: drop-shadow(0 0 2px rgba(0,229,255,0.15)); }
 
-/* Date input dark theme */
-input[type="date"]::-webkit-calendar-picker-indicator {
-  filter: invert(0.5);
-  cursor: pointer;
+/* ── Table ─────────────────────────────────────────────────── */
+.atlas-table { width: 100%; border-collapse: collapse; }
+.atlas-table th {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: hsl(var(--foreground-tertiary));
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid hsl(var(--border));
+  background: hsl(var(--background-secondary));
+  font-weight: 500;
 }
-select option { background: #0a0f14; color: #cdd6f4; }
+.atlas-table td {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 8px 12px;
+  border-bottom: 1px solid hsl(var(--border));
+  color: hsl(var(--foreground-secondary));
+}
+.atlas-table tr:last-child td { border-bottom: none; }
+.atlas-table tr:hover td { background: hsl(var(--card-hover)); }

@@ -1,165 +1,173 @@
-import { fetchTx, explainTx, abbrev, lamportsToXnt, TxFacts } from '@/lib/api'
-import { ActionCard } from '@/components/ActionCard'
-import { TokenDeltaTable } from '@/components/TokenDeltaTable'
-import { TagBadge } from '@/components/TagBadge'
-import { ExplainPanel } from '@/components/ExplainPanel'
-import { CopyButton } from '@/components/CopyButton'
+import { fetchTx, explainTx, abbrev, lamportsToXnt, type TxFacts } from '@/lib/api';
+import { ActionCard } from '@/components/ActionCard';
+import { TokenDeltaTable } from '@/components/TokenDeltaTable';
+import { TagBadge } from '@/components/TagBadge';
+import { ExplainPanel } from '@/components/ExplainPanel';
+import { CopyButton } from '@/components/CopyButton';
 
 export default async function TxPage({ params }: { params: { sig: string } }) {
-  let facts: TxFacts | null = null
-  let error: string | null = null
+  let facts: TxFacts | null = null;
+  let error: string | null  = null;
 
-  try {
-    facts = await fetchTx(params.sig)
-  } catch (e: unknown) {
-    error = e instanceof Error ? e.message : 'Failed to load transaction'
-  }
+  try { facts = await fetchTx(params.sig); }
+  catch (e: unknown) { error = e instanceof Error ? e.message : 'Failed to load transaction'; }
 
   if (error || !facts) {
     return (
-      <div className="text-red-400 font-mono text-sm p-6 bg-surface-raised rounded-lg border border-red-900">
-        {error ?? 'Transaction not found'}
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '28px 24px' }}>
+        <div className="atlas-card" style={{
+          padding: '20px',
+          borderLeft: '3px solid hsl(var(--accent-red))',
+          fontFamily: 'var(--font-mono)', fontSize: 12,
+          color: 'hsl(var(--accent-red))',
+        }}>
+          {error ?? 'Transaction not found'}
+        </div>
       </div>
-    )
+    );
   }
 
-  const sig       = facts.sig  // capture before JSX to avoid non-null assertions in closures
-  const isSuccess = facts.status === 'success'
+  const sig       = facts.sig;
+  const isSuccess = facts.status === 'success';
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="text-xs text-gray-500 font-mono mb-1">TRANSACTION</div>
-          <div className="font-mono text-sm text-gray-200 break-all">{sig}</div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-            isSuccess ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'
-          }`}>
-            {isSuccess ? '✓ Success' : '✗ Failed'}
+    <div style={{ maxWidth: 1200, margin: '0 auto', padding: '28px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+      {/* ── Header ──────────────────────────────────────────── */}
+      <div className="atlas-card" style={{ padding: '16px 20px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+          <div style={{ flex: 1 }}>
+            <span className="statlabel" style={{ marginBottom: 8, display: 'inline-block' }}>TRANSACTION</span>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'hsl(var(--foreground))', wordBreak: 'break-all', marginTop: 6, lineHeight: 1.6 }}>
+              {sig}
+            </div>
+          </div>
+          <span style={{
+            fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '.1em', flexShrink: 0,
+            padding: '5px 10px',
+            background: isSuccess ? 'hsla(var(--accent-green),.1)' : 'hsla(var(--accent-red),.1)',
+            border: `1px solid ${isSuccess ? 'hsla(var(--accent-green),.3)' : 'hsla(var(--accent-red),.3)'}`,
+            color: isSuccess ? 'hsl(var(--accent-green))' : 'hsl(var(--accent-red))',
+          }}>
+            {isSuccess ? '✓ SUCCESS' : '✗ FAILED'}
           </span>
         </div>
       </div>
 
-      {/* Meta row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <MetaCard label="Slot"       value={facts.slot.toLocaleString()} />
-        <MetaCard label="Block Time" value={facts.block_time
-          ? new Date(facts.block_time * 1000).toLocaleString()
-          : '—'
-        } />
-        <MetaCard label="Fee"        value={`${lamportsToXnt(facts.fee_lamports)} XNT`} />
-        <MetaCard label="Compute"    value={
-          facts.compute_units.consumed
+      {/* ── Meta grid ───────────────────────────────────────── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', border: '1px solid hsl(var(--border))' }}>
+        {([
+          ['SLOT',       facts.slot.toLocaleString()],
+          ['BLOCK TIME', facts.block_time ? new Date(facts.block_time * 1000).toLocaleString() : '—'],
+          ['FEE',        `${lamportsToXnt(facts.fee_lamports)} XNT`],
+          ['COMPUTE',    facts.compute_units.consumed
             ? `${facts.compute_units.consumed.toLocaleString()} / ${(facts.compute_units.limit ?? 0).toLocaleString()}`
-            : '—'
-        } />
+            : '—'],
+        ] as [string, string][]).map(([label, value], i) => (
+          <div key={label} style={{
+            padding: '14px 16px',
+            borderRight: i < 3 ? '1px solid hsl(var(--border))' : 'none',
+            background: 'hsl(var(--card))',
+          }}>
+            <span className="statlabel" style={{ marginBottom: 8, display: 'inline-block' }}>{label}</span>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'hsl(var(--foreground))', marginTop: 6 }}>
+              {value}
+            </div>
+          </div>
+        ))}
       </div>
 
-      {/* Tags */}
+      {/* ── Tags ────────────────────────────────────────────── */}
       {facts.tags.length > 0 && (
-        <div className="flex flex-wrap gap-2">
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {facts.tags.map(t => <TagBadge key={t} tag={t} />)}
         </div>
       )}
 
-      {/* Actions */}
+      {/* ── Actions ─────────────────────────────────────────── */}
       {facts.actions.length > 0 && (
-        <Section title="Actions">
-          <div className="space-y-2">
+        <Section label="ACTIONS">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 16px' }}>
             {facts.actions.map((a, i) => <ActionCard key={i} action={a} />)}
           </div>
         </Section>
       )}
 
-      {/* Token Deltas */}
+      {/* ── Token deltas ────────────────────────────────────── */}
       {facts.token_deltas.length > 0 && (
-        <Section title="Token Changes">
+        <Section label="TOKEN CHANGES">
           <TokenDeltaTable deltas={facts.token_deltas} />
         </Section>
       )}
 
-      {/* Native XNT Deltas */}
+      {/* ── XNT deltas ──────────────────────────────────────── */}
       {facts.xnt_deltas && facts.xnt_deltas.length > 0 && (
-        <Section title="XNT Balance Changes">
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs font-mono">
-              <thead>
-                <tr className="text-gray-500 text-left border-b border-surface-border">
-                  <th className="pb-2 pr-4">Account</th>
-                  <th className="pb-2 pr-4 text-right">Before</th>
-                  <th className="pb-2 pr-4 text-right">After</th>
-                  <th className="pb-2 text-right">Delta</th>
+        <Section label="XNT BALANCE CHANGES">
+          <table className="atlas-table">
+            <thead>
+              <tr>
+                <th>ACCOUNT</th>
+                <th style={{ textAlign: 'right' }}>BEFORE</th>
+                <th style={{ textAlign: 'right' }}>AFTER</th>
+                <th style={{ textAlign: 'right' }}>DELTA</th>
+              </tr>
+            </thead>
+            <tbody>
+              {facts.xnt_deltas.map((d, i) => (
+                <tr key={i}>
+                  <td>
+                    <a href={`/address/${d.owner}`} style={{ color: 'hsl(var(--primary))', textDecoration: 'none', fontFamily: 'var(--font-mono)', fontSize: 11 }}>
+                      {abbrev(d.owner, 10)}
+                    </a>
+                  </td>
+                  <td style={{ textAlign: 'right' }}>{lamportsToXnt(d.pre_lamports)}</td>
+                  <td style={{ textAlign: 'right' }}>{lamportsToXnt(d.post_lamports)}</td>
+                  <td style={{ textAlign: 'right', color: d.delta_lamports > 0 ? 'hsl(var(--accent-green))' : 'hsl(var(--accent-red))', fontWeight: 600 }}>
+                    {d.delta_lamports > 0 ? '+' : ''}{lamportsToXnt(d.delta_lamports)}
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-surface-border">
-                {facts.xnt_deltas.map((d, i) => (
-                  <tr key={i} className="py-1">
-                    <td className="py-2 pr-4 text-gray-300">{abbrev(d.owner, 10)}</td>
-                    <td className="py-2 pr-4 text-right text-gray-400">
-                      {lamportsToXnt(d.pre_lamports)}
-                    </td>
-                    <td className="py-2 pr-4 text-right text-gray-400">
-                      {lamportsToXnt(d.post_lamports)}
-                    </td>
-                    <td className={`py-2 text-right font-semibold ${
-                      d.delta_lamports > 0 ? 'text-green-400' : 'text-red-400'
-                    }`}>
-                      {d.delta_lamports > 0 ? '+' : ''}
-                      {lamportsToXnt(d.delta_lamports)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         </Section>
       )}
 
-      {/* Programs */}
+      {/* ── Programs ────────────────────────────────────────── */}
       {facts.programs.length > 0 && (
-        <Section title="Programs Invoked">
-          <div className="space-y-1">
+        <Section label="PROGRAMS INVOKED">
+          <div style={{ padding: '10px 16px', display: 'flex', flexDirection: 'column', gap: 6 }}>
             {facts.programs.map(p => (
-              <div key={p} className="font-mono text-xs text-gray-400">{p}</div>
+              <a key={p} href={`/address/${p}`} style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'hsl(var(--foreground-secondary))', textDecoration: 'none' }}>
+                {p}
+              </a>
             ))}
           </div>
         </Section>
       )}
 
-      {/* Explain + Copy actions */}
-      <div className="flex gap-3">
+      {/* ── Actions: explain + copy ─────────────────────────── */}
+      <div style={{ display: 'flex', gap: 10 }}>
         <ExplainPanel sig={sig} />
-        {/* CopyButton calls the proxy endpoint via explainTx — API key injected server-side */}
         <CopyButton
           label="Copy Facts (TOON)"
           getValue={async () => {
-            const { explainTx: fetchExplain } = await import('@/lib/api')
-            const data = await fetchExplain(sig)
-            return data.factsToon ?? ''
+            const { explainTx: fe } = await import('@/lib/api');
+            const data = await fe(sig);
+            return data.factsToon ?? '';
           }}
         />
       </div>
     </div>
-  )
+  );
 }
 
-function MetaCard({ label, value }: { label: string; value: string }) {
+function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="bg-surface-raised border border-surface-border rounded-lg p-3">
-      <div className="text-xs text-gray-500 mb-1">{label}</div>
-      <div className="font-mono text-sm text-gray-100">{value}</div>
-    </div>
-  )
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="bg-surface-raised border border-surface-border rounded-lg p-4 space-y-3">
-      <div className="text-xs text-gray-500 font-semibold uppercase tracking-wider">{title}</div>
+    <div className="atlas-card" style={{ overflow: 'hidden' }}>
+      <div style={{ padding: '10px 16px', borderBottom: '1px solid hsl(var(--border))' }}>
+        <span className="statlabel">{label}</span>
+      </div>
       {children}
     </div>
-  )
+  );
 }

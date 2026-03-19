@@ -1,83 +1,119 @@
-import Link from 'next/link'
-import { fetchAddressTxs, fetchWalletProfile, abbrev } from '@/lib/api'
-import { WalletScoreBadge } from '@/components/WalletScoreBadge'
-import { TxHistoryList } from '@/components/TxHistoryList'
+import Link from 'next/link';
+import { fetchAddressTxs, fetchWalletProfile } from '@/lib/api';
+import { WalletScoreBadge } from '@/components/WalletScoreBadge';
+import { TxHistoryList } from '@/components/TxHistoryList';
+
+const TX_TYPES = ['all', 'swap', 'transfer', 'balanceChanged'] as const;
+
+function shorten(addr: string) {
+  return `${addr.slice(0, 8)}…${addr.slice(-8)}`;
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid hsl(var(--border))' }}>
+      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'hsl(var(--foreground-tertiary))', letterSpacing: '.06em' }}>{label}</span>
+      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'hsl(var(--foreground-secondary))' }}>{value}</span>
+    </div>
+  );
+}
 
 export default async function AddressPage({
   params,
   searchParams,
 }: {
-  params: { addr: string }
-  searchParams: { before?: string; type?: string }
+  params: { addr: string };
+  searchParams: { before?: string; type?: string };
 }) {
-  const addr   = params.addr
-  const before = searchParams.before
-  const txType = searchParams.type ?? 'all'
+  const addr   = params.addr;
+  const before = searchParams.before;
+  const txType = searchParams.type ?? 'all';
 
   const [txPage, profile] = await Promise.allSettled([
-    // Pass txType to the server-side fetch so the filter is applied at the DB layer
     fetchAddressTxs(addr, before, 50, txType),
     fetchWalletProfile(addr, '7d'),
-  ])
+  ]);
 
-  const page    = txPage.status    === 'fulfilled' ? txPage.value    : null
-  const walletP = profile.status === 'fulfilled' ? profile.value : null
+  const page   = txPage.status  === 'fulfilled' ? txPage.value  : null;
+  const walletP = profile.status === 'fulfilled' ? profile.value : null;
 
   return (
-    <div className="space-y-6">
-      {/* Address header */}
-      <div>
-        <div className="text-xs text-gray-500 font-mono mb-1">ADDRESS</div>
-        <div className="font-mono text-sm text-gray-200 break-all">{addr}</div>
+    <div style={{ maxWidth: 1200, margin: '0 auto', padding: '28px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+      {/* ── Address header ─────────────────────────────────── */}
+      <div className="atlas-card" style={{ padding: '16px 20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+          <div>
+            <span className="statlabel" style={{ marginBottom: 8, display: 'inline-block' }}>ADDRESS</span>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'hsl(var(--foreground))', wordBreak: 'break-all', marginTop: 6 }}>
+              {addr}
+            </div>
+          </div>
+          <a
+            href={`/trace/${addr}`}
+            style={{
+              fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '.1em',
+              background: 'hsla(var(--primary),.1)', border: '1px solid hsla(var(--primary),.3)',
+              color: 'hsl(var(--primary))', padding: '6px 12px', textDecoration: 'none',
+              whiteSpace: 'nowrap', transition: 'background .15s',
+            }}
+          >
+            ◈ TRACE
+          </a>
+        </div>
       </div>
 
-      {/* Wallet profile card */}
+      {/* ── Wallet profile ──────────────────────────────────── */}
       {walletP && (
-        <div className="bg-surface-raised border border-surface-border rounded-lg p-4">
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div>
-              <div className="text-xs text-gray-500 mb-1">WALLET TYPE</div>
-              <span className="font-semibold text-brand capitalize">
-                {walletP.wallet_type.replace('_', ' ')}
-              </span>
-              <span className="text-gray-500 text-xs ml-2">
-                ({(walletP.confidence * 100).toFixed(0)}% confidence)
-              </span>
+        <div className="atlas-card" style={{ padding: '16px 20px' }}>
+          <span className="statlabel" style={{ marginBottom: 12, display: 'inline-block' }}>WALLET PROFILE</span>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 24, flexWrap: 'wrap' }}>
+            <div style={{ flex: 1 }}>
+              <InfoRow label="TYPE"       value={walletP.wallet_type.replace('_', ' ').toUpperCase()} />
+              <InfoRow label="CONFIDENCE" value={`${(walletP.confidence * 100).toFixed(0)}%`} />
               {walletP.updated_at && (
-                <span className="text-gray-600 text-xs ml-2 hidden md:inline">
-                  updated {new Date(walletP.updated_at).toLocaleString()}
-                </span>
+                <InfoRow label="UPDATED" value={new Date(walletP.updated_at).toLocaleString()} />
               )}
             </div>
-            <WalletScoreBadge scores={walletP.scores} />
+            <div>
+              <WalletScoreBadge scores={walletP.scores} />
+            </div>
           </div>
         </div>
       )}
 
-      {/* Filter bar — uses Next.js <Link> for client-side navigation (no full reload) */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <span className="text-xs text-gray-500">Filter:</span>
-        {(['all', 'swap', 'transfer', 'balanceChanged'] as const).map(t => (
+      {/* ── Filter bar ──────────────────────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 0, border: '1px solid hsl(var(--border))', width: 'fit-content' }}>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'hsl(var(--foreground-muted))', letterSpacing: '.1em', padding: '6px 10px', borderRight: '1px solid hsl(var(--border))' }}>
+          TYPE
+        </span>
+        {TX_TYPES.map(t => (
           <Link
             key={t}
             href={`/address/${addr}?type=${t}`}
-            className={`px-3 py-1 rounded text-xs font-mono transition-colors ${
-              txType === t
-                ? 'bg-brand text-black'
-                : 'bg-surface-raised border border-surface-border text-gray-400 hover:border-brand'
-            }`}
+            style={{
+              fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '.08em',
+              padding: '6px 12px',
+              background: txType === t ? 'hsl(var(--primary))' : 'transparent',
+              color: txType === t ? 'hsl(220 17% 4%)' : 'hsl(var(--foreground-tertiary))',
+              textDecoration: 'none',
+              borderRight: t !== 'balanceChanged' ? '1px solid hsl(var(--border))' : 'none',
+              transition: 'background .15s, color .15s',
+            }}
           >
-            {t}
+            {t.toUpperCase()}
           </Link>
         ))}
       </div>
 
-      {/* Transaction history — spam toggle and infinite scroll are client-side */}
+      {/* ── Tx history ──────────────────────────────────────── */}
       {page ? (
         <TxHistoryList page={page} addr={addr} txType={txType} />
       ) : (
-        <div className="text-gray-500 text-sm font-mono">No transactions found.</div>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'hsl(var(--foreground-muted))', padding: '20px 0' }}>
+          No transactions found.
+        </div>
       )}
     </div>
-  )
+  );
 }

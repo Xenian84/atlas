@@ -1,36 +1,32 @@
 'use client';
-
 import { useState, useEffect, useCallback } from 'react';
 import { getVoteAccounts, type VoteAccount } from '@/lib/atlasRpc';
 
+const MY_VALIDATOR = process.env.NEXT_PUBLIC_MY_VALIDATOR ?? '';
+
 function calcApy(v: VoteAccount): number {
   if (!v.epochCredits || v.epochCredits.length < 2) return 0;
-  const recent = v.epochCredits.slice(-4);
-  const earned = recent.reduce((sum, [, cur, prev]) => sum + (cur - prev), 0);
+  const recent  = v.epochCredits.slice(-4);
+  const earned  = recent.reduce((sum, [, cur, prev]) => sum + (cur - prev), 0);
   const possible = recent.length * 432_000;
-  const rate = possible > 0 ? earned / possible : 0;
-  // Rough APY: 6.5% base inflation * vote rate * (1 - commission/100)
+  const rate    = possible > 0 ? earned / possible : 0;
   return Math.round(rate * 6.5 * (1 - v.commission / 100) * 10) / 10;
 }
 
-function shorten(addr: string) {
-  return `${addr.slice(0, 5)}…${addr.slice(-5)}`;
-}
+const shorten = (a: string) => `${a.slice(0, 5)}…${a.slice(-5)}`;
 
 function StakeBar({ weight }: { weight: number }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-      <div style={{ flex: 1, height: 4, background: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden', minWidth: 40 }}>
-        <div style={{ width: `${Math.min(100, weight * 100)}%`, height: '100%', background: '#89b4fa', borderRadius: 2 }} />
+      <div style={{ flex: 1, height: 3, background: 'hsl(var(--border))', overflow: 'hidden', minWidth: 40 }}>
+        <div style={{ width: `${Math.min(100, weight * 100)}%`, height: '100%', background: 'hsl(var(--accent-blue))' }} />
       </div>
-      <span style={{ fontSize: 10, color: '#6c7086', fontFamily: 'monospace', width: 38, textAlign: 'right' }}>
+      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'hsl(var(--foreground-tertiary))', width: 38, textAlign: 'right' }}>
         {(weight * 100).toFixed(2)}%
       </span>
     </div>
   );
 }
-
-const COLS = ['RANK', 'VALIDATOR', 'APY', 'ACTIVE STAKE', 'WEIGHT', 'COMMISSION', 'LAST VOTE'];
 
 export default function ValidatorTable() {
   const [validators, setValidators] = useState<VoteAccount[]>([]);
@@ -54,119 +50,134 @@ export default function ValidatorTable() {
   useEffect(() => { load(); }, [load]);
 
   const totalStake = validators.reduce((s, v) => s + v.activatedStake, 0);
-  const paged = validators.slice(page * perPage, (page + 1) * perPage);
-  const pageCount = Math.ceil(validators.length / perPage);
+  const paged      = validators.slice(page * perPage, (page + 1) * perPage);
+  const pageCount  = Math.ceil(validators.length / perPage);
 
   return (
-    <div style={{ background: 'rgba(10,15,25,0.8)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '20px 22px' }}>
+    <div className="atlas-card" style={{ padding: '20px 0 0' }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+      <div style={{ padding: '0 20px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid hsl(var(--border))' }}>
         <div>
-          <div style={{ fontSize: 10, letterSpacing: '0.12em', color: '#45475a', textTransform: 'uppercase', fontFamily: 'monospace', marginBottom: 4 }}>
-            ACTIVE VALIDATORS
-          </div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: '#cdd6f4', fontFamily: 'monospace' }}>
+          <span className="statlabel">VALIDATORS</span>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 700, color: 'hsl(var(--foreground))', lineHeight: 1, marginTop: 8 }}>
             {total.toLocaleString()}
-            <span style={{ fontSize: 11, color: '#45475a', fontWeight: 400, marginLeft: 6 }}>validators</span>
+            <span style={{ fontSize: 11, color: 'hsl(var(--foreground-tertiary))', fontWeight: 400, marginLeft: 6 }}>
+              {showActive ? 'active' : 'total'}
+            </span>
           </div>
         </div>
         <button
           onClick={() => { setShowActive(a => !a); setPage(0); }}
           style={{
-            background: showActive ? 'rgba(166,227,161,0.1)' : 'rgba(243,139,168,0.1)',
-            border: `1px solid ${showActive ? 'rgba(166,227,161,0.3)' : 'rgba(243,139,168,0.3)'}`,
-            borderRadius: 6, padding: '5px 12px',
-            color: showActive ? '#a6e3a1' : '#f38ba8',
-            fontFamily: 'monospace', fontSize: 10, cursor: 'pointer', letterSpacing: '0.08em',
+            background: showActive ? 'hsla(var(--accent-green),.1)' : 'hsla(var(--accent-red),.1)',
+            border: `1px solid ${showActive ? 'hsla(var(--accent-green),.35)' : 'hsla(var(--accent-red),.35)'}`,
+            padding: '5px 10px',
+            color: showActive ? 'hsl(var(--accent-green))' : 'hsl(var(--accent-red))',
+            fontFamily: 'var(--font-mono)', fontSize: 9, cursor: 'pointer', letterSpacing: '.1em',
+            transition: 'all .15s',
           }}
         >
-          {showActive ? 'Active only' : 'Show all'}
+          {showActive ? 'ACTIVE ONLY' : 'ALL'}
         </button>
       </div>
 
-      {/* Table */}
       {loading ? (
-        <div style={{ color: '#45475a', fontSize: 12, fontFamily: 'monospace', textAlign: 'center', padding: '40px 0' }}>Loading validators…</div>
+        <div style={{ padding: '12px 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {[...Array(6)].map((_, i) => <div key={i} className="skeleton" style={{ height: 32 }} />)}
+        </div>
       ) : (
-        <>
-          {/* Header row */}
-          <div style={{ display: 'grid', gridTemplateColumns: '40px 1fr 70px 110px 140px 90px 90px', gap: 8, padding: '0 0 8px', borderBottom: '1px solid rgba(255,255,255,0.07)', marginBottom: 4 }}>
-            {COLS.map(c => (
-              <span key={c} style={{ fontSize: 9, color: '#45475a', fontFamily: 'monospace', letterSpacing: '0.1em', textTransform: 'uppercase' }}>{c}</span>
-            ))}
-          </div>
+        <table className="atlas-table">
+          <thead>
+            <tr>
+              <th style={{ width: 40 }}>#</th>
+              <th>VALIDATOR</th>
+              <th>APY</th>
+              <th>STAKE</th>
+              <th>WEIGHT</th>
+              <th>COMM</th>
+              <th style={{ textAlign: 'right' }}>LAST VOTE</th>
+            </tr>
+          </thead>
+          <tbody>
+            {paged.map((v, i) => {
+              const rank       = page * perPage + i + 1;
+              const stake      = (v.activatedStake / 1e9).toFixed(0);
+              const weight     = totalStake > 0 ? v.activatedStake / totalStake : 0;
+              const apy        = calcApy(v);
+              const isMe       = MY_VALIDATOR && (v.nodePubkey === MY_VALIDATOR || v.votePubkey === MY_VALIDATOR);
+              return (
+                <tr key={v.votePubkey}>
+                  <td style={{ color: 'hsl(var(--foreground-muted))', width: 40 }}>{rank}</td>
+                  <td>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <a href={`/address/${v.nodePubkey}`} style={{ color: 'hsl(var(--primary))', textDecoration: 'none', fontFamily: 'var(--font-mono)', fontSize: 11 }}>
+                        {shorten(v.nodePubkey)}
+                      </a>
+                      {isMe && (
+                        <span style={{
+                          fontFamily: 'var(--font-mono)', fontSize: 8, letterSpacing: '.1em',
+                          background: 'hsla(var(--primary),.15)', color: 'hsl(var(--primary))',
+                          border: '1px solid hsla(var(--primary),.35)', padding: '1px 5px',
+                        }}>YOU</span>
+                      )}
+                    </div>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'hsl(var(--foreground-muted))' }}>
+                      {shorten(v.votePubkey)}
+                    </div>
+                  </td>
+                  <td style={{ color: apy > 0 ? 'hsl(var(--accent-green))' : 'hsl(var(--foreground-muted))', fontWeight: 600 }}>
+                    {apy > 0 ? `${apy}%` : '—'}
+                  </td>
+                  <td>{Number(stake).toLocaleString()} SOL</td>
+                  <td style={{ minWidth: 120 }}><StakeBar weight={weight} /></td>
+                  <td style={{ color: v.commission > 10 ? 'hsl(var(--accent-amber))' : 'hsl(var(--foreground-secondary))' }}>
+                    {v.commission}%
+                  </td>
+                  <td style={{ textAlign: 'right', color: 'hsl(var(--foreground-tertiary))' }}>
+                    {v.lastVote?.toLocaleString() ?? '—'}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
 
-          {paged.map((v, i) => {
-            const weight = totalStake > 0 ? v.activatedStake / totalStake : 0;
-            const apy = calcApy(v);
-            const isOurs = v.nodePubkey === '6YLpqj2PQiy12cG8YzUZ6hspoGY5RixQp7wM5d4veXp5';
-            return (
-              <div
-                key={v.votePubkey}
-                style={{
-                  display: 'grid', gridTemplateColumns: '40px 1fr 70px 110px 140px 90px 90px',
-                  gap: 8, padding: '9px 0',
-                  borderBottom: '1px solid rgba(255,255,255,0.03)',
-                  background: isOurs ? 'rgba(0,229,255,0.03)' : 'transparent',
-                  borderLeft: isOurs ? '2px solid #00e5ff' : '2px solid transparent',
-                  paddingLeft: isOurs ? 6 : 0,
-                }}
-              >
-                <span style={{ color: '#45475a', fontFamily: 'monospace', fontSize: 12 }}>
-                  {page * perPage + i + 1}
-                </span>
-                <div>
-                  <div style={{ color: '#cdd6f4', fontFamily: 'monospace', fontSize: 11, fontWeight: 600 }}>
-                    {shorten(v.nodePubkey)}
-                    {isOurs && <span style={{ marginLeft: 6, fontSize: 9, color: '#00e5ff', background: 'rgba(0,229,255,0.1)', border: '1px solid rgba(0,229,255,0.3)', borderRadius: 3, padding: '1px 5px' }}>YOU</span>}
-                  </div>
-                  <div style={{ color: '#45475a', fontFamily: 'monospace', fontSize: 9 }}>{shorten(v.votePubkey)}</div>
-                </div>
-                <span style={{ color: apy > 6 ? '#a6e3a1' : '#cdd6f4', fontFamily: 'monospace', fontSize: 12, fontWeight: 600 }}>
-                  {apy > 0 ? `${apy}%` : '—'}
-                </span>
-                <span style={{ color: '#a6adc8', fontFamily: 'monospace', fontSize: 11 }}>
-                  {(v.activatedStake / 1e9).toLocaleString(undefined, { maximumFractionDigits: 0 })} ◎
-                </span>
-                <StakeBar weight={weight} />
-                <span style={{ color: v.commission > 10 ? '#f38ba8' : '#cdd6f4', fontFamily: 'monospace', fontSize: 12 }}>
-                  {v.commission}%
-                </span>
-                <span style={{ color: '#6c7086', fontFamily: 'monospace', fontSize: 11 }}>
-                  {v.lastVote.toLocaleString()}
-                </span>
-              </div>
-            );
-          })}
-
-          {/* Pagination */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 14, fontFamily: 'monospace', fontSize: 11 }}>
-            <span style={{ color: '#45475a' }}>
-              Showing {page * perPage + 1}–{Math.min((page + 1) * perPage, validators.length)} of {validators.length}
-            </span>
-            <div style={{ display: 'flex', gap: 6 }}>
-              <PageBtn label="←" disabled={page === 0} onClick={() => setPage(p => p - 1)} />
-              <PageBtn label="→" disabled={page >= pageCount - 1} onClick={() => setPage(p => p + 1)} />
-            </div>
-          </div>
-        </>
+      {/* Pagination */}
+      {pageCount > 1 && (
+        <div style={{ padding: '10px 20px', borderTop: '1px solid hsl(var(--border))', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            disabled={page === 0}
+            onClick={() => setPage(p => p - 1)}
+            style={{
+              fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '.08em',
+              background: 'hsl(var(--background-secondary))', border: '1px solid hsl(var(--border))',
+              color: page === 0 ? 'hsl(var(--foreground-muted))' : 'hsl(var(--foreground-secondary))',
+              padding: '4px 10px', cursor: page === 0 ? 'default' : 'pointer',
+            }}
+          >
+            ← PREV
+          </button>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'hsl(var(--foreground-muted))' }}>
+            {page + 1} / {pageCount}
+          </span>
+          <button
+            disabled={page >= pageCount - 1}
+            onClick={() => setPage(p => p + 1)}
+            style={{
+              fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '.08em',
+              background: 'hsl(var(--background-secondary))', border: '1px solid hsl(var(--border))',
+              color: page >= pageCount - 1 ? 'hsl(var(--foreground-muted))' : 'hsl(var(--foreground-secondary))',
+              padding: '4px 10px', cursor: page >= pageCount - 1 ? 'default' : 'pointer',
+            }}
+          >
+            NEXT →
+          </button>
+          <span style={{ marginLeft: 'auto', fontFamily: 'var(--font-mono)', fontSize: 9, color: 'hsl(var(--foreground-muted))' }}>
+            {validators.length} validators total
+          </span>
+        </div>
       )}
     </div>
-  );
-}
-
-function PageBtn({ label, disabled, onClick }: { label: string; disabled: boolean; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      style={{
-        background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)',
-        borderRadius: 5, padding: '4px 12px', color: disabled ? '#313244' : '#a6adc8',
-        fontFamily: 'monospace', fontSize: 11, cursor: disabled ? 'not-allowed' : 'pointer',
-      }}
-    >
-      {label}
-    </button>
   );
 }

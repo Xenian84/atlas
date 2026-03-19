@@ -1,34 +1,27 @@
-import type { Metadata } from 'next'
-import './globals.css'
+import type { Metadata } from 'next';
+import './globals.css';
+import Nav from '@/components/Nav';
 
 export const metadata: Metadata = {
   title: 'Atlas Explorer — X1',
-  description: 'Production blockchain explorer for X1',
-}
+  description: 'Production blockchain explorer for the X1 network powered by the Tachyon validator.',
+};
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500;600&display=swap"
-          rel="stylesheet"
-        />
-      </head>
-      <body className="bg-surface text-gray-100 font-sans antialiased min-h-screen">
-        <nav className="border-b border-surface-border px-6 py-3 flex items-center gap-6">
-          <a href="/" className="text-brand font-mono font-semibold text-lg tracking-tight">
-            ◈ Atlas
-          </a>
-          <span className="text-xs text-gray-500 border border-surface-border rounded px-2 py-0.5">
-            {process.env.NEXT_PUBLIC_CHAIN?.toUpperCase() ?? 'X1'}
-          </span>
-        </nav>
-        <main className="max-w-6xl mx-auto px-4 py-8">
-          {children}
-        </main>
+    <html lang="en" style={{ scrollBehavior: 'smooth' }}>
+      <body style={{
+        margin: 0,
+        background: 'hsl(var(--background))',
+        color: 'hsl(var(--foreground))',
+        fontFamily: 'var(--font-sans)',
+        WebkitFontSmoothing: 'antialiased',
+        MozOsxFontSmoothing: 'grayscale',
+        minHeight: '100vh',
+      }}>
+        <Nav />
+        {children}
       </body>
     </html>
-  )
+  );
 }
